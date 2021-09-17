@@ -1,6 +1,7 @@
 let
-  rev = "1905f5f2e55e0db0bb6244cfe62cb6c0dbda391d";
-  sha256 = "148f79hhya66qj8v5gn7bs6zrfjy1nbvdciyxdm4yd5p8r6ayzv6";
+  lock = builtins.fromJSON (builtins.readFile ./flake.lock);
+  rev = lock.nodes.nixpkgs.locked.rev;
+  sha256 = lock.nodes.nixpkgs.locked.narHash;
   tarball = builtins.fetchTarball {
     url = "https://github.com/NixOS/nixpkgs/archive/${rev}.tar.gz";
     inherit sha256;
