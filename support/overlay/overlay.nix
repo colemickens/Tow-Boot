@@ -74,6 +74,10 @@ in
 
     meson64-tools = callPackage ./meson64-tools { };
 
+    raspberrypi-armstubs = callPackage ./raspberrypi/armstubs { };
+    raspberrypi-eeprom = callPackage ./raspberrypi/eeprom { };
+    raspberrypifw = callPackage ./raspberrypi/firmware { };
+
     mkScript = file: final.runCommandNoCC "out.scr" {
       nativeBuildInputs = [
         final.buildPackages.ubootTools

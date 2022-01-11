@@ -2,11 +2,11 @@
   "nodes": {
     "nixpkgs": {
       "locked": {
-        "lastModified": 1631785487,
-        "narHash": "sha256-VSKEvOtaY/roDxEHFxXh6GguOqqWCJZ3E06fBdKu8+I=",
+        "lastModified": 1668671332,
+        "narHash": "sha256-6QW9sTuLDcBLoR5EY+6LR7Y1k0dFVEMqcWY4jYOuiqM=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "79c444b5bdeaba142d128afddee14c89ecf2a968",
+        "rev": "54be84c3ac0122c2b2272fc68a9015304bc0bb73",
         "type": "github"
       },
       "original": {
@@ -18,7 +18,24 @@
     },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "rpipkgs": "rpipkgs"
+      }
+    },
+    "rpipkgs": {
+      "locked": {
+        "lastModified": 1652566488,
+        "narHash": "sha256-LLP7r29K5/7sr+pgysbaNo7Soo2NBLPFok0sRishxUE=",
+        "owner": "colemickens",
+        "repo": "nixpkgs",
+        "rev": "eb0f77141fc6cfe00dc043b75462268ee9bc0bee",
+        "type": "github"
+      },
+      "original": {
+        "owner": "colemickens",
+        "ref": "rpi-updates-auto",
+        "repo": "nixpkgs",
+        "type": "github"
       }
     }
   },
