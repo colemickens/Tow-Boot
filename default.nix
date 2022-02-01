@@ -1,20 +1,24 @@
-{ device ? null
-, configuration ? { }
+{
+  configuration ? { }
 , silent ? false
-, pkgs ? import ./nixpkgs.nix { }
-}@args:
+, inputs
+, system ? builtins.currentSystem
+}:
 
 let
-  release-tools = import ./support/nix/release-tools.nix { inherit pkgs; };
+  pkgs = import inputs.nixpkgs { inherit system; };
+
+  release-tools = import ./support/nix/release-tools.nix { inherit inputs system; };
 
   inherit (release-tools)
     allDevices
   ;
 
   evalFor = device:
-    import ./support/nix/eval-with-configuration.nix (args // {
+    import ./support/nix/eval-with-configuration.nix ({
       inherit device;
-      inherit pkgs;
+      inherit system;
+      inherit inputs;
       verbose = true;
       configuration = {
         imports = [
@@ -33,8 +37,6 @@ let
 
   outputs = builtins.listToAttrs (builtins.map (device: { name = device; value = evalFor device; }) allDevices);
   outputsCount = builtins.length (builtins.attrNames outputs);
-
-  pkgs = import ./nixpkgs.nix {};
 in
 
 outputs // {
