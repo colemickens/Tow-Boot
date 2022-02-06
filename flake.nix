@@ -8,10 +8,13 @@
   outputs = inputs:
     let
       defaultOutputs = curSystem:
-        ({...}@args: (import ./default.nix {
+        let
           pkgs = (import inputs.nixpkgs {
             system = curSystem;
           });
+        in
+        ({...}@args: (import ./default.nix {
+          inherit pkgs;
         } // args))
       ;
 
