@@ -1,19 +1,10 @@
 { config, lib, pkgs, ... }:
 
-# TODO: redesign feedback
-# - I can't combine armv6l and aarch64 :/
-# - I really don't understand some choices
-
 let
+  binary = "Tow-Boot.noenv.rpi_arm64.bin";
   inherit (config.helpers)
     composeConfig
   ;
-  raspberryPi = composeConfig {
-    config = {
-      device.identifier = "raspberryPi";
-      Tow-Boot.defconfig = "rpi_defconfig";
-    };
-  };
   raspberryPi-aarch64 = composeConfig {
     config = {
       device.identifier = "raspberryPi-aarch64";
@@ -26,26 +17,11 @@ let
     arm_64bit=1
     enable_uart=1
     avoid_warnings=1
-
-    [pi0]
-    kernel=Tow-Boot.noenv.rpi.bin
-    arm_64bit=0
-
-    [pi02]
-    kernel=Tow-Boot.noenv.rpi_arm64.bin
-
-    [pi3]
-    kernel=Tow-Boot.noenv.rpi_arm64.bin
-
-    [pi4]
-    kernel=Tow-Boot.noenv.rpi_arm64.bin
     enable_gic=1
     armstub=armstub8-gic.bin
     disable_overscan=1
     arm_boost=1
-
-    # override all filters and apply to all boards
-    [all]
+    kernel=${binary}
     avoid_warnings
   '';
 in
@@ -74,33 +50,57 @@ in
     patches = [
       ./0001-configs-rpi-allow-for-bigger-kernels.patch
       ./0001-Tow-Boot-rpi-Increase-malloc-pool-up-to-64MiB-env.patch
-      
+
       # Remove when updating to 2022.01
       # https://patchwork.ozlabs.org/project/uboot/list/?series=273129&archive=both&state=*
       ./1-2-rpi-Update-the-Raspberry-Pi-doucmentation-URL.patch
-
-      # TODO: write this patch
-      ./0001-Tow-Boot-pass-uboot-version-in-kernel-params.patch
     ];
+    outputs.scripts = makeTheBundle {
+      paths = [
+        (pkgs.writeShellScript "tow-boot-rpi-update" ''
+          #
+          # FIND + REMOUNT FIRMWARE (pull this to common script?)
+          sudo mount ...
+
+          #
+          # UPDATE EEPROM
+          # TODO: check version+config to see if we need to do this
+          sudo rpi-update-eeprom --firmware-path /tmp/mount-path
+
+          #
+          # UPDATE FIRMWARE + TOW-BOOT
+          cp -av "${Tow-Boot.outputs.firmware}/*" "/tmp/mount-path"
+          echo "rebooting in 30 seconds"
+
+          # TODO: if we need a reboot, maybe write a sentinel indicating such
+
+          #
+          # if not need update:
+          # - check for /boot/firmware/old, delete it
+          # TODO
+          # - unmount firmware
+          # otherwise:
+          echo "we need to update firmware, rebooting in 30 seconds..."
+          sleep 20; echo "10 seconds..."; sleep 10
+          sudo reboot
+        '')
+      ]
+    };
     outputs.firmware = lib.mkIf (config.device.identifier == "raspberryPi-aarch64") (
       pkgs.callPackage (
         { runCommandNoCC }:
 
         runCommandNoCC "tow-boot-${config.device.identifier}" {
-          inherit (raspberryPi-3.config.Tow-Boot.outputs.firmware)
+          inherit (config.Tow-Boot.outputs.firmware)
             version
             source
           ;
         } ''
           (PS4=" $ "; set -x
           mkdir -p $out/{binaries,config}
-          cp -v ${raspberryPi-3.config.Tow-Boot.outputs.firmware.source}/* $out/
-          cp -v ${raspberryPi-3.config.Tow-Boot.outputs.firmware}/binaries/Tow-Boot.noenv.bin $out/binaries/Tow-Boot.noenv.rpi3.bin
-          cp -v ${raspberryPi-3.config.Tow-Boot.outputs.firmware}/config/noenv.config $out/config/noenv.rpi3.config
-
-          cp -v ${raspberryPi-4.config.Tow-Boot.outputs.firmware.source}/* $out/
-          cp -v ${raspberryPi-4.config.Tow-Boot.outputs.firmware}/binaries/Tow-Boot.noenv.bin $out/binaries/Tow-Boot.noenv.rpi4.bin
-          cp -v ${raspberryPi-4.config.Tow-Boot.outputs.firmware}/config/noenv.config $out/config/noenv.rpi4.config
+          cp -v ${config.Tow-Boot.outputs.firmware.source}/* $out/
+          cp -v ${config.Tow-Boot.outputs.firmware}/binaries/Tow-Boot.noenv.bin $out/binaries/${binary}
+          cp -v ${config.Tow-Boot.outputs.firmware}/config/noenv.config $out/config/noenv.rpi3.config
           )
         ''
       ) { }
@@ -123,13 +123,14 @@ in
         filesystem = "fat32";
         populateCommands = ''
           cp -v ${configTxt} config.txt
-          cp -v ${raspberryPi-3.config.Tow-Boot.outputs.firmware}/binaries/Tow-Boot.noenv.bin Tow-Boot.noenv.rpi3.bin
-          cp -v ${raspberryPi-4.config.Tow-Boot.outputs.firmware}/binaries/Tow-Boot.noenv.bin Tow-Boot.noenv.rpi4.bin
+          cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${binary} ${binary}
           cp -v ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin armstub8-gic.bin
           (
           target="$PWD"
           cd ${pkgs.raspberrypifw}/share/raspberrypi/boot
-          cp -v bcm2711-rpi-4-b.dtb "$target/"
+          cp -v bcm2711-rpi-*.dtb "$target/"
+          mkdir -p "$target/upstream"
+          cp -v ${pkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm*rpi*.dtb "$target/upstream/"
           cp -v bootcode.bin fixup*.dat start*.elf "$target/"
           )
         '';
