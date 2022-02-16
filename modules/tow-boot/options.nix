@@ -49,6 +49,13 @@ in
         '';
       };
 
+      outputs.scripts = mkOption {
+        type = types.package;
+        description = ''
+          misc grab bag of anything a board might need to export TODO: this is awful
+        '';
+      };
+
       releaseNumber = mkOption {
         type = types.str;
         description = ''

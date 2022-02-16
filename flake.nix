@@ -13,9 +13,9 @@
             system = curSystem;
           });
         in
-        ({...}@args: (import ./default.nix {
+        ({...}@args: (import ./default.nix ({
           inherit pkgs;
-        } // args))
+        } // args)))
       ;
 
       nameValuePair = name: value: { inherit name value; };

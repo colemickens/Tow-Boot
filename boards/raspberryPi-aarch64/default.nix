@@ -1,17 +1,7 @@
 { config, lib, pkgs, ... }:
 
 let
-  binary = "Tow-Boot.noenv.rpi_arm64.bin";
-  inherit (config.helpers)
-    composeConfig
-  ;
-  raspberryPi-aarch64 = composeConfig {
-    config = {
-      device.identifier = "raspberryPi-aarch64";
-      Tow-Boot.defconfig = "rpi_arm64_defconfig";
-    };
-  };
-
+  final_binary = "Tow-Boot.noenv.rpi_arm64.bin";
   configTxt = pkgs.writeText "config.txt" ''
     # these apply to all, but can be overridden by device specific sections
     arm_64bit=1
@@ -21,11 +11,47 @@ let
     armstub=armstub8-gic.bin
     disable_overscan=1
     arm_boost=1
-    kernel=${binary}
-    avoid_warnings
+    kernel=${final_binary}
+    avoid_warnings=1
+    #upstream=1 # TODO TODO TODO TODO TODO TODO
+
+    # TODO: my USB wait thingy? or did new eeprom
+    # and firmware fix this?
+    # -- could just be that trying the USB-MSD first
+    # -- gives the SSD enough time to be up...?
+
+    dtparam=watchdog
   '';
-in
-{
+  # BOOT_ORDER: (pi reads the hex value RTL (LSB=>MSB))
+  # 0x0 = SD-CARD-DETECT
+  # 0x1 = SD-CARD
+  # 0x2 = NETWORK
+  # 0x3 = RPIBOOT
+  # 0x4 = USB-MSD
+  # 0x4 = BCM-USB-MSD
+  # 0x4 = NVME
+  # 0x4 = STOP
+  # 0x4 = RESTART
+  bootconfTxt = pkgs.writeText "bootconf.txt" ''
+    [all]
+    BOOT_UART=1
+    ENABLE_SELF_UPDATE=1
+    BOOT_ORDER=0xf2146 # NVME => USB-MSB => SD-CARD => NETWORK => RESTART
+  '';
+  eepromBin = pkgs.runCommandNoCC "pieeprom.bin" {} ''
+    set -x
+    set -euo pipefail
+
+    dir="${pkgs.raspberrypi-eeprom}/share/rpi-eeprom/stable"
+    orig="$(ls $dir | grep pieeprom | sort | tail -1)"
+
+    ${pkgs.raspberrypi-eeprom}/bin/rpi-eeprom-config \
+      --config "${bootconfTxt}" \
+      --out $out \
+        "$(readlink -f $dir/$orig)"
+  '';
+in {
+  # TODO: and like why is this not passed through?
   device = {
     manufacturer = "Raspberry Pi";
     name = "Combined AArch64";
@@ -39,9 +65,7 @@ in
   };
 
   Tow-Boot = {
-    # FIXME: a small lie for now until we get the upcoming changes in.
     defconfig = lib.mkDefault "rpi_arm64_defconfig";
-
     config = [
       (helpers: with helpers; {
         CMD_POWEROFF = no;
@@ -55,22 +79,38 @@ in
       # https://patchwork.ozlabs.org/project/uboot/list/?series=273129&archive=both&state=*
       ./1-2-rpi-Update-the-Raspberry-Pi-doucmentation-URL.patch
     ];
-    outputs.scripts = makeTheBundle {
+    outputs.scripts = pkgs.symlinkJoin {
+      name = "tow-boot-${config.device.identifier}-scripts";
       paths = [
-        (pkgs.writeShellScript "tow-boot-rpi-update" ''
+        (pkgs.writeShellScriptBin "tow-boot-rpi-update" ''
+          set -x
+          set -euo pipefail
+
           #
           # FIND + REMOUNT FIRMWARE (pull this to common script?)
-          sudo mount ...
+          # TODO: mount firmware by the partition-id
+          sudo mount -o remount,rw /boot/firmware
 
           #
           # UPDATE EEPROM
-          # TODO: check version+config to see if we need to do this
-          sudo rpi-update-eeprom --firmware-path /tmp/mount-path
+          sudo ${pkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update -r || true
+          sudo env BOOTFS=/boot/firmware \
+            ${pkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update \
+              -d -f "${eepromBin}"
 
           #
           # UPDATE FIRMWARE + TOW-BOOT
-          cp -av "${Tow-Boot.outputs.firmware}/*" "/tmp/mount-path"
-          echo "rebooting in 30 seconds"
+
+          # TODO: copy other files too...
+
+          # TODO: assert files are here, since they might move ("binaries" dir)
+
+          # TODO: `outputs.firmware` -> `outputs.bootloader` and then it passthru's outputs.firmware which
+          # contains the rpi stage-0 start4.elf, etc
+
+          cp -av "${config.Tow-Boot.outputs.firmware}/binaries/"* "/boot/firmware/"
+          cp -av "${configTxt}" "/boot/firmware/config.txt.$(date +'%s')"
+          cp -av "${configTxt}" "/boot/firmware/config.txt"
 
           # TODO: if we need a reboot, maybe write a sentinel indicating such
 
@@ -80,37 +120,36 @@ in
           # TODO
           # - unmount firmware
           # otherwise:
-          echo "we need to update firmware, rebooting in 30 seconds..."
-          sleep 20; echo "10 seconds..."; sleep 10
-          sudo reboot
-        '')
-      ]
-    };
-    outputs.firmware = lib.mkIf (config.device.identifier == "raspberryPi-aarch64") (
-      pkgs.callPackage (
-        { runCommandNoCC }:
 
-        runCommandNoCC "tow-boot-${config.device.identifier}" {
-          inherit (config.Tow-Boot.outputs.firmware)
-            version
-            source
-          ;
-        } ''
-          (PS4=" $ "; set -x
-          mkdir -p $out/{binaries,config}
-          cp -v ${config.Tow-Boot.outputs.firmware.source}/* $out/
-          cp -v ${config.Tow-Boot.outputs.firmware}/binaries/Tow-Boot.noenv.bin $out/binaries/${binary}
-          cp -v ${config.Tow-Boot.outputs.firmware}/config/noenv.config $out/config/noenv.rpi3.config
-          )
-        ''
-      ) { }
-    );
+          printf "!!!\n!!!\nPLEASE REBOOT\n!!!\n!!!"
+        '')
+      ];
+    };
+
+    #TODO: refactor this to output all firmware to FIRMWARE_CONTENTS/
+    # TODO: refactor the populate commands to copy from ${outputs.firmware}/FIRMARE_CONTENTS
+    # outputs.firmware = lib.mkIf (config.device.identifier == "raspberryPi-aarch64") (
+    #   pkgs.callPackage (
+    #     { runCommandNoCC }:
+
+    #     runCommandNoCC "tow-boot-${config.device.identifier}" {} ''
+    #       (PS4=" $ "; set -x
+    #       mkdir -p $out/{binaries,config}
+    #       cp -v ${config.Tow-Boot.outputs.firmware}/binaries/Tow-Boot.noenv.bin $out/binaries/Tow-Boot.noenv.bin
+    #       cp -v ${config.Tow-Boot.outputs.firmware}/config/noenv.config $out/config/noenv.config
+    #       )
+    #     ''
+    #   ) { }
+    # );
     builder.installPhase = ''
-      cp -v u-boot.bin $out/binaries/Tow-Boot.$variant.bin
+      cp -v u-boot.bin $out/binaries/${final_binary}
     '';
 
     # TODO: why is there "outputs.firmware", "installerPhase" AND "populateCommands"... ?
 
+
+    # TODO: this option name is confusing given the lines below it literally
+    # "write" the binary into the firmware part (but I suspect "write" vs "copy" is the key)
     # The Raspberry Pi firmware expects a filesystem to be used.
     writeBinaryToFirmwarePartition = false;
 
@@ -123,14 +162,14 @@ in
         filesystem = "fat32";
         populateCommands = ''
           cp -v ${configTxt} config.txt
-          cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${binary} ${binary}
+          cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} ${final_binary}
           cp -v ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin armstub8-gic.bin
           (
           target="$PWD"
           cd ${pkgs.raspberrypifw}/share/raspberrypi/boot
-          cp -v bcm2711-rpi-*.dtb "$target/"
           mkdir -p "$target/upstream"
           cp -v ${pkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm*rpi*.dtb "$target/upstream/"
+          cp -v ${pkgs.linuxPackages_latest.rpi}/dtbs/broadcom/bcm*rpi*.dtb "$target/"
           cp -v bootcode.bin fixup*.dat start*.elf "$target/"
           )
         '';
