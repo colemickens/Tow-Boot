@@ -25,6 +25,7 @@ in
           "armv6l-linux"
           "armv7l-linux"
           "aarch64-linux"
+          "riscv64-linux"
         ];
         description = ''
           Defines the kind of target architecture system the device is.
