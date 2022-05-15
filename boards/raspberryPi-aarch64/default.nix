@@ -12,18 +12,28 @@ let
   
   final_binary = "Tow-Boot.noenv.rpi_arm64.bin";
   configTxt = pkgs.writeText "config.txt" ''
+    
+    # [pi02w]
+    #
+    
     # these apply to all, but can be overridden by device specific sections
     arm_64bit=1
     enable_uart=1
     avoid_warnings=1
+
+    kernel=${final_binary}
+    dtoverlay=${cfg.dtoverlay}
+    
+    # TODO: liboptional experimental
+    arm_boost=1
+    # TODO: liboptional hdmi
+    hdmi_force_hotplug=1
+    # TODO: 
+    
+    [pi4]
     enable_gic=1
     armstub=armstub8-gic.bin
     disable_overscan=1
-    hdmi_force_hotplug=1
-    # TODO:?
-    arm_boost=1
-    kernel=${final_binary}
-    dtoverlay=${cfg.dtoverlay}
     ${lib.optionalString (cfg.use_upstream) ''
       upstream_kernel=1
     ''}
