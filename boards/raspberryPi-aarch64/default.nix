@@ -1,53 +1,55 @@
 { config, lib, pkgs, inputs, ... }:
 
 let
+  toBooint = (v: if v then "1" else "0");
   cfg = {
-    use_upstream = true;
+    upstream_kernel = true;
+    arm_boost = true;
+    dtparam = null; # "watchdog=on";
     dtoverlay = "disable-bt";
+    uart_2ndstage = true;
+    hdmi_force_hotplug = true;
+
+    # TODO: allow users to: have custom tow-boot, with special parts per device
+    # which is also how I want to handle some other things
+    # plus (???) also isn't the the MBR device id? there's no such part id?
+    partitionID = "00F800F8";
   };
-  
+  cfgval = (f: p:
+    let chk =
+      if (builtins.hasAttr p cfg && cfg."${p}" != null)
+      then (f cfg."${p}")
+      else null;
+    in (lib.optionalString (chk != null) "${p}=${chk}")
+  );
+
   rpipkgs = import inputs.rpipkgs {
     system = pkgs.system;
   };
-  
+
   final_binary = "Tow-Boot.noenv.rpi_arm64.bin";
   configTxt = pkgs.writeText "config.txt" ''
-    
-    # [pi02w]
-    #
-    
-    # these apply to all, but can be overridden by device specific sections
+    # all #####################################################################
     arm_64bit=1
     enable_uart=1
     avoid_warnings=1
-
     kernel=${final_binary}
-    dtoverlay=${cfg.dtoverlay}
+    ${cfgval toBooint "upstream_kernel"}
+    ${cfgval toBooint "arm_boost"}
+    ${cfgval toString "dtparam"}
+    ${cfgval toString "dtoverlay"}
+    ${cfgval toBooint "uart_2ndstage"}
+    ${cfgval toBooint "hdmi_force_hotplug"}
+  
+
+    # TODO: I think dtparams can come after dtoverlay -_- .... add it to the list
     
-    # TODO: liboptional experimental
-    arm_boost=1
-    # TODO: liboptional hdmi
-    hdmi_force_hotplug=1
-    # TODO: 
-    
-    [pi4]
+    [pi4] #####################################################################
     enable_gic=1
     armstub=armstub8-gic.bin
     disable_overscan=1
-    ${lib.optionalString (cfg.use_upstream) ''
-      upstream_kernel=1
-    ''}
-    avoid_warnings=1
-    
-    uart_2ndstage=1
-
-    # TODO: my USB wait thingy? or did new eeprom
-    # and firmware fix this?
-    # -- could just be that trying the USB-MSD first
-    # -- gives the SSD enough time to be up...?
-
-    #dtparam=watchdog
   '';
+
   # BOOT_ORDER: (pi reads the hex value RTL (LSB=>MSB))
   # 0x0 = SD-CARD-DETECT
   # 0x1 = SD-CARD
@@ -64,7 +66,7 @@ let
     ENABLE_SELF_UPDATE=1
     BOOT_ORDER=0xf2146 # NVME => USB-MSB => SD-CARD => NETWORK => RESTART
   '';
-  eepromBin = pkgs.runCommandNoCC "pieeprom.bin" {} ''
+  eepromBin = pkgs.runCommandNoCC "pieeprom.bin" { } ''
     set -x
     set -euo pipefail
 
@@ -76,7 +78,8 @@ let
       --out $out \
         "$(readlink -f $dir/$orig)"
   '';
-in {
+in
+{
   # TODO: and like why is this not passed through?
   device = {
     manufacturer = "Raspberry Pi";
@@ -100,7 +103,7 @@ in {
     patches = [
       ./0001-configs-rpi-allow-for-bigger-kernels.patch
       ./0001-Tow-Boot-rpi-Increase-malloc-pool-up-to-64MiB-env.patch
-      ./0001-rpi-Copy-properties-from-firmware-dtb-to-the-loaded-.patch
+      # ./0001-rpi-Copy-properties-from-firmware-dtb-to-the-loaded-.patch
 
       # Remove when updating to 2022.01
       # https://patchwork.ozlabs.org/project/uboot/list/?series=273129&archive=both&state=*
@@ -190,47 +193,49 @@ in {
         filesystem = "fat32";
         populateCommands = ''
           target="$PWD"
+          mkdir -p "$target/upstream"
+                
+          cp -v "${configTxt}" "$target/config.txt"
+          cp -vt "$target/" "${rpipkgs.raspberrypi-armstubs}/armstub8-gic.bin"
 
-          ${if (cfg.use_upstream) then ''
-            mkdir -p $target/upstream/
-            cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} $target/upstream/${final_binary}
-          '' else ''
-            cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} $target/${final_binary}
-          ''}
+          (
+            cd ${rpipkgs.raspberrypifw}/share/raspberrypi/boot
+            cp -vt "$target/" bootcode.bin fixup*.dat start*.elf
+            cp -vt "$target/" -r overlays
+          )
 
-          cp -v ${configTxt} $target/config.txt
-          cp -v ${rpipkgs.raspberrypi-armstubs}/armstub8-gic.bin $target/armstub8-gic.bin
-          cd ${rpipkgs.raspberrypifw}/share/raspberrypi/boot
-          cp -v bootcode.bin fixup*.dat start*.elf "$target/"
-          cp -r overlays "$target/"
-          
-          ${lib.optionalString (cfg.use_upstream) ''
-            cp -v ${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm*rpi*.dtb "$target/upstream/"
+          # kernel + dtbs
+          cp -vt "$target/upstream/" \
+            ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} \
+            ${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm*rpi*.dtb
 
-            # TODO: remove these when we are past 5.18 (?)
-            cp "$target/upstream/bcm2837-rpi-3-b.dtb" "$target/upstream/bcm2837-rpi-zero-2-w.dtb"  # as ref'd: https://www.spinics.net/lists/arm-kernel/msg951388.html
-            cp "$target/upstream/bcm2837-rpi-3-b.dtb" "$target/upstream/bcm2837-rpi-zero-2.dtb"    # as ref'd... but extlinux tried to load the unsuffixed dtb filename
-          ''}
-          ${lib.optionalString (!cfg.use_upstream) ''
-            # TODO: confirm: probably shouldn't be needed...
-            # cp $target/upstream/bcm2837-rpi-3-b.dtb $target/upstream/bcm2710-rpi-zero-2.dtb    # as ref'd: xxx
-            cp -v ${rpipkgs.linuxPackages_rpi4.kernel}/dtbs/broadcom/bcm*rpi*.dtb "$target/"
-          ''}
+          cp -vt "$target/" \
+             ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} \
+            ${rpipkgs.linuxPackages_rpi4.kernel}/dtbs/broadcom/bcm*rpi*.dtb
+
+          # `upstream_kernel` fixup for `rpi02w`:
+          # - ref: https://www.spinics.net/lists/arm-kernel/msg951388.html
+          # - and: extlinux wanted it without the '-w'
+          dtbsrc="${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm2837-rpi-3-b.dtb"
+          cp -v "$dtbsrc" "$target/upstream/bcm2837-rpi-zero-2-w.dtb"
+          cp -v "$dtbsrc" "$target/upstream/bcm2837-rpi-zero-2.dtb"
         '';
 
         # The build, since it includes misc. files from the Raspberry Pi Foundation
         # can get quite bigger, compared to other boards.
         size = 32 * 1024 * 1024;
         fat32 = {
-          partitionID = "00F800F8";
+          partitionID = cfg.partitionID;
         };
         label = "TOWBOOT-FW";
       };
     };
   };
   documentation.sections.installationInstructions = ''
-    ## Installation instructions
+        ## Installation instructions
 
-    ${config.documentation.helpers.genericSharedStorageInstructionsTemplate { storage = "an SD card, USB drive (if the Raspberry Pi is configured correctly) or eMMC (for systems with eMMC)"; }}
+        ${config.documentation.helpers.genericSharedStorageInstructionsTemplate { storage = "an SD card, USB drive (if the Raspberry Pi is configured correctly) or eMMC (for systems with eMMC)";
+    }}
   '';
 }
+
