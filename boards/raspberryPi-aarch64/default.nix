@@ -179,21 +179,30 @@ in {
       filesystem = {
         filesystem = "fat32";
         populateCommands = ''
-          cp -v ${configTxt} config.txt
-          ${lib.optionalString (cfg.use_upstream) ''
-            mkdir -p upstream/
-          ''}
-          cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} ${final_binary}
-          cp -v ${rpipkgs.raspberrypi-armstubs}/armstub8-gic.bin armstub8-gic.bin
-          (
           target="$PWD"
+
+          cp -v ${configTxt} $target/config.txt
+          ${lib.optionalString (cfg.use_upstream) ''
+            mkdir -p $target/upstream/
+          ''}
+          cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} $target/${final_binary}
+          cp -v ${rpipkgs.raspberrypi-armstubs}/armstub8-gic.bin $target/armstub8-gic.bin
+
           cd ${rpipkgs.raspberrypifw}/share/raspberrypi/boot
           cp -v bootcode.bin fixup*.dat start*.elf "$target/"
           cp -r overlays "$target/"
+          
+          ${lib.optionalString (cfg.use_upstream) ''
+            cp -v ${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm*rpi*.dtb "$target/upstream/"
 
-          cp -v ${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm*rpi*.dtb "$target/upstream/"
-          cp -v ${rpipkgs.linuxPackages_rpi4.kernel}/dtbs/broadcom/bcm*rpi*.dtb "$target/"
-          )
+            # TODO: remove these when we are past 5.18 (?)
+            cp $target/upstream/bcm2837-rpi-3-b.dtb $target/upstream/bcm2837-rpi-zero-2-w.dtb  # as ref'd: https://www.spinics.net/lists/arm-kernel/msg951388.html
+          ''}
+          ${lib.optionalString (!cfg.use_upstream) ''
+            # TODO: confirm: probably shouldn't be needed...
+            # cp $target/upstream/bcm2837-rpi-3-b.dtb $target/upstream/bcm2710-rpi-zero-2.dtb    # as ref'd: xxx
+            cp -v ${rpipkgs.linuxPackages_rpi4.kernel}/dtbs/broadcom/bcm*rpi*.dtb "$target/"
+          ''}
         '';
 
         # The build, since it includes misc. files from the Raspberry Pi Foundation
