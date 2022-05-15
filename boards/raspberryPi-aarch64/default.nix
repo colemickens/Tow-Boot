@@ -24,7 +24,7 @@ let
     arm_boost=1
     kernel=${final_binary}
     dtoverlay=${cfg.dtoverlay}
-    ${lib.optional (cfg.use_upstream) ''
+    ${lib.optionalString (cfg.use_upstream) ''
       upstream_kernel=1
     ''}
     avoid_warnings=1
@@ -180,12 +180,10 @@ in {
         filesystem = "fat32";
         populateCommands = ''
           cp -v ${configTxt} config.txt
-          ${if cfg.use_upstream then ''
+          ${lib.optionalString (cfg.use_upstream) ''
             mkdir -p upstream/
-            cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} upstream/${final_binary}
-          '' else ''
-            cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} ${final_binary}
-          ''} 
+          ''}
+          cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} ${final_binary}
           cp -v ${rpipkgs.raspberrypi-armstubs}/armstub8-gic.bin armstub8-gic.bin
           (
           target="$PWD"
