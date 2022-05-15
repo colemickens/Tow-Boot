@@ -1,10 +1,13 @@
-{ pkgs ? import ../../nixpkgs.nix {} }: 
+{
+  system ? builtins.currentSystem
+, inputs
+}: 
 
 let
   # Original `evalConfig`
-  evalConfig = import "${toString pkgs.path}/nixos/lib/eval-config.nix";
+  evalConfig = import "${inputs.nixpkgs}/nixos/lib/eval-config.nix";
   # Import modules from Nixpkgs
-  fromNixpkgs = map (module: "${toString pkgs.path}/nixos/modules/${module}");
+  fromNixpkgs = map (module: "${inputs.nixpkgs}/nixos/modules/${module}");
 in
 rec {
   # Evaluates Tow-Boot, and the device config with the given additional modules.
@@ -23,6 +26,8 @@ rec {
     )
   }: evalConfig {
     inherit baseModules;
+    system = system;
+    specialArgs = { inherit inputs; };
     modules = []
       # `device` can be a couple of types.
       ++ (   if builtins.isAttrs device then [ device ]                    # An attrset is used directly
@@ -38,7 +43,7 @@ rec {
   evalFor = device: config: (
     import ./eval-with-configuration.nix {
       inherit
-        pkgs
+        inputs
         device
       ;
       configuration = {

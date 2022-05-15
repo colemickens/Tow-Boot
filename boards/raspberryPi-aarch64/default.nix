@@ -1,6 +1,14 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, inputs, ... }:
 
 let
+  cfg = {
+    use_upstream = true;
+  };
+  
+  rpipkgs = import inputs.rpipkgs {
+    system = pkgs.system;
+  };
+  
   final_binary = "Tow-Boot.noenv.rpi_arm64.bin";
   configTxt = pkgs.writeText "config.txt" ''
     # these apply to all, but can be overridden by device specific sections
@@ -10,17 +18,26 @@ let
     enable_gic=1
     armstub=armstub8-gic.bin
     disable_overscan=1
+    hdmi_force_hotplug=1
+    # TODO:?
     arm_boost=1
-    kernel=${final_binary}
+    ${if cfg.use_upstream then ''
+      upstream_kernel=${final_binary}
+      dtoverlay=disable-bt,dwc2
+    '' else ''
+      kernel=${final_binary}
+      dtoverlay=disable-bt
+    ''}
     avoid_warnings=1
-    #upstream=1 # TODO TODO TODO TODO TODO TODO
+    
+    uart_2ndstage=1
 
     # TODO: my USB wait thingy? or did new eeprom
     # and firmware fix this?
     # -- could just be that trying the USB-MSD first
     # -- gives the SSD enough time to be up...?
 
-    dtparam=watchdog
+    #dtparam=watchdog
   '';
   # BOOT_ORDER: (pi reads the hex value RTL (LSB=>MSB))
   # 0x0 = SD-CARD-DETECT
@@ -42,10 +59,10 @@ let
     set -x
     set -euo pipefail
 
-    dir="${pkgs.raspberrypi-eeprom}/share/rpi-eeprom/stable"
+    dir="${rpipkgs.raspberrypi-eeprom}/share/rpi-eeprom/stable"
     orig="$(ls $dir | grep pieeprom | sort | tail -1)"
 
-    ${pkgs.raspberrypi-eeprom}/bin/rpi-eeprom-config \
+    ${rpipkgs.raspberrypi-eeprom}/bin/rpi-eeprom-config \
       --config "${bootconfTxt}" \
       --out $out \
         "$(readlink -f $dir/$orig)"
@@ -74,6 +91,7 @@ in {
     patches = [
       ./0001-configs-rpi-allow-for-bigger-kernels.patch
       ./0001-Tow-Boot-rpi-Increase-malloc-pool-up-to-64MiB-env.patch
+      ./0001-rpi-Copy-properties-from-firmware-dtb-to-the-loaded-.patch
 
       # Remove when updating to 2022.01
       # https://patchwork.ozlabs.org/project/uboot/list/?series=273129&archive=both&state=*
@@ -93,9 +111,9 @@ in {
 
           #
           # UPDATE EEPROM
-          sudo ${pkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update -r || true
+          sudo ${rpipkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update -r || true
           sudo env BOOTFS=/boot/firmware \
-            ${pkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update \
+            ${rpipkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update \
               -d -f "${eepromBin}"
 
           #
@@ -155,6 +173,7 @@ in {
 
     diskImage = {
       partitioningScheme = "mbr"; # why? the rpi boots fine from gpt, we should use it?
+      # except rpithreeb?
     };
     firmwarePartition = {
       partitionType = "0C";
@@ -162,15 +181,21 @@ in {
         filesystem = "fat32";
         populateCommands = ''
           cp -v ${configTxt} config.txt
-          cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} ${final_binary}
-          cp -v ${pkgs.raspberrypi-armstubs}/armstub8-gic.bin armstub8-gic.bin
+          ${if cfg.use_upstream then ''
+            mkdir -p upstream/
+            cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} upstream/${final_binary}
+          '' else ''
+            cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} ${final_binary}
+          ''} 
+          cp -v ${rpipkgs.raspberrypi-armstubs}/armstub8-gic.bin armstub8-gic.bin
           (
           target="$PWD"
-          cd ${pkgs.raspberrypifw}/share/raspberrypi/boot
-          mkdir -p "$target/upstream"
-          cp -v ${pkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm*rpi*.dtb "$target/upstream/"
-          cp -v ${pkgs.linuxPackages_latest.rpi}/dtbs/broadcom/bcm*rpi*.dtb "$target/"
+          cd ${rpipkgs.raspberrypifw}/share/raspberrypi/boot
           cp -v bootcode.bin fixup*.dat start*.elf "$target/"
+          cp -r overlays "$target/"
+
+          cp -v ${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm*rpi*.dtb "$target/upstream/"
+          cp -v ${rpipkgs.linuxPackages_rpi4.kernel}/dtbs/broadcom/bcm*rpi*.dtb "$target/"
           )
         '';
 
@@ -180,7 +205,7 @@ in {
         fat32 = {
           partitionID = "00F800F8";
         };
-        label = "TOW-BOOT-FIRM";
+        label = "TOWBOOT-FW";
       };
     };
   };
