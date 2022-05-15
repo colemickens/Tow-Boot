@@ -3,6 +3,7 @@
 let
   cfg = {
     use_upstream = true;
+    dtoverlay = "disable-bt";
   };
   
   rpipkgs = import inputs.rpipkgs {
@@ -21,12 +22,10 @@ let
     hdmi_force_hotplug=1
     # TODO:?
     arm_boost=1
-    ${if cfg.use_upstream then ''
-      upstream_kernel=${final_binary}
-      dtoverlay=disable-bt,dwc2
-    '' else ''
-      kernel=${final_binary}
-      dtoverlay=disable-bt
+    kernel=${final_binary}
+    dtoverlay=${cfg.dtoverlay}
+    ${lib.optional (cfg.use_upstream) ''
+      upstream_kernel=1
     ''}
     avoid_warnings=1
     
