@@ -198,7 +198,8 @@ in {
             cp -v ${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm*rpi*.dtb "$target/upstream/"
 
             # TODO: remove these when we are past 5.18 (?)
-            cp $target/upstream/bcm2837-rpi-3-b.dtb $target/upstream/bcm2837-rpi-zero-2-w.dtb  # as ref'd: https://www.spinics.net/lists/arm-kernel/msg951388.html
+            cp "$target/upstream/bcm2837-rpi-3-b.dtb" "$target/upstream/bcm2837-rpi-zero-2-w.dtb"  # as ref'd: https://www.spinics.net/lists/arm-kernel/msg951388.html
+            cp "$target/upstream/bcm2837-rpi-3-b.dtb" "$target/upstream/bcm2837-rpi-zero-2.dtb"    # as ref'd... but extlinux tried to load the unsuffixed dtb filename
           ''}
           ${lib.optionalString (!cfg.use_upstream) ''
             # TODO: confirm: probably shouldn't be needed...
