@@ -181,13 +181,15 @@ in {
         populateCommands = ''
           target="$PWD"
 
-          cp -v ${configTxt} $target/config.txt
-          ${lib.optionalString (cfg.use_upstream) ''
+          ${if (cfg.use_upstream) then ''
             mkdir -p $target/upstream/
+            cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} $target/upstream/${final_binary}
+          '' else ''
+            cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} $target/${final_binary}
           ''}
-          cp -v ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} $target/${final_binary}
-          cp -v ${rpipkgs.raspberrypi-armstubs}/armstub8-gic.bin $target/armstub8-gic.bin
 
+          cp -v ${configTxt} $target/config.txt
+          cp -v ${rpipkgs.raspberrypi-armstubs}/armstub8-gic.bin $target/armstub8-gic.bin
           cd ${rpipkgs.raspberrypifw}/share/raspberrypi/boot
           cp -v bootcode.bin fixup*.dat start*.elf "$target/"
           cp -r overlays "$target/"
