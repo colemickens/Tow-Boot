@@ -143,49 +143,54 @@ in
     ];
     outputs.scripts = pkgs.symlinkJoin {
       name = "tow-boot-${config.device.identifier}-scripts";
-      paths = [
-        (pkgs.writeShellScriptBin "tow-boot-rpi-update" ''
-          set -x
-          set -euo pipefail
+      paths =
+        let updater = mbr_disk_id:
+          (pkgs.writeShellScriptBin "tow-boot-update-rpi" ''
+            set -x
+            set -euo pipefail
 
-          #
-          # FIND + REMOUNT FIRMWARE (pull this to common script?)
-          # TODO: mount firmware by the partition-id
-          sudo mount -o remount,rw /boot/firmware
+            #
+            # FIND + REMOUNT FIRMWARE (pull this to common script?)
+            # TODO: mount firmware by the partition-id
+            sudo mount -o remount,rw /disk/by-partlabel/TOWBOOT-FI
 
-          #
-          # UPDATE EEPROM
-          sudo ${rpipkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update -r || true
-          sudo env BOOTFS=/boot/firmware \
-            ${rpipkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update \
-              -d -f "${eepromBin}"
+            #
+            # UPDATE EEPROM
+            sudo ${rpipkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update -r || true
+            sudo env BOOTFS=/boot/firmware \
+              ${rpipkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update \
+                -d -f "${eepromBin}"
 
-          #
-          # UPDATE FIRMWARE + TOW-BOOT
+            #
+            # UPDATE FIRMWARE + TOW-BOOT
 
-          # TODO: copy other files too...
+            # TODO: copy other files too...
 
-          # TODO: assert files are here, since they might move ("binaries" dir)
+            # TODO: assert files are here, since they might move ("binaries" dir)
 
-          # TODO: `outputs.firmware` -> `outputs.bootloader` and then it passthru's outputs.firmware which
-          # contains the rpi stage-0 start4.elf, etc
+            # TODO: `outputs.firmware` -> `outputs.bootloader` and then it passthru's outputs.firmware which
+            # contains the rpi stage-0 start4.elf, etc
 
-          cp -av "${config.Tow-Boot.outputs.firmware}/binaries/"* "/boot/firmware/"
-          cp -av "${configTxt}" "/boot/firmware/config.txt.$(date +'%s')"
-          cp -av "${configTxt}" "/boot/firmware/config.txt"
+            cp -av "${config.Tow-Boot.outputs.firmware}/binaries/"* "/boot/firmware/"
+            cp -av "${configTxt}" "/boot/firmware/config.txt.$(date +'%s')"
+            cp -av "${configTxt}" "/boot/firmware/config.txt"
 
-          # TODO: if we need a reboot, maybe write a sentinel indicating such
+            # TODO: if we need a reboot, maybe write a sentinel indicating such
 
-          #
-          # if not need update:
-          # - check for /boot/firmware/old, delete it
-          # TODO
-          # - unmount firmware
-          # otherwise:
+            #
+            # if not need update:
+            # - check for /boot/firmware/old, delete it
+            # TODO
+            # - unmount firmware
+            # otherwise:
 
-          printf "!!!\n!!!\nPLEASE REBOOT\n!!!\n!!!"
-        '')
-      ];
+            printf "!!!\n!!!\nPLEASE REBOOT\n!!!\n!!!"
+          '');
+        in
+        [
+          (helper false)
+          (helper true)
+        ];
     };
 
     #TODO: refactor this to output all firmware to FIRMWARE_CONTENTS/
