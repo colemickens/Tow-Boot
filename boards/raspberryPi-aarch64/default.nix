@@ -244,14 +244,6 @@ in
           cp -vt "$target/" \
              ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} \
             ${rpipkgs.linuxPackages_rpi4.kernel}/dtbs/broadcom/bcm*rpi*.dtb
-
-          # `upstream_kernel` fixup for `rpi02w`:
-          # - ref: https://www.spinics.net/lists/arm-kernel/msg951388.html
-          # - and: extlinux wanted it without the '-w'
-          # dtbsrc="${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm2837-rpi-3-b.dtb"
-          dtbsrc="${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm2837-rpi-3-b-plus.dtb"
-          cp -v "$dtbsrc" "$target/upstream/bcm2837-rpi-zero-2-w.dtb"
-          cp -v "$dtbsrc" "$target/upstream/bcm2837-rpi-zero-2.dtb"
         '';
 
         # The build, since it includes misc. files from the Raspberry Pi Foundation
