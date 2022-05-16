@@ -42,7 +42,7 @@ let
   configTxt =
     pkgs.writeText "config.txt"
       # https://www.raspberrypi.com/documentation/computers/config_txt.html#model-filters  
-      ''
+      (''
         # (implicit) all ########################################################
         arm_64bit=1
         enable_uart=1
@@ -64,24 +64,28 @@ let
 
         [pi4]
         ${ubootPi4Common}
-        [pi400]
-        ${ubootPi4Common}
-        [cm4]
-        ${ubootPi4Common}
-
+      ''
+      #  [pi400]
+      #  ${ubootPi4Common}
+      #  [cm4]
+      #  ${ubootPi4Common}
+      + ''
+    
         [pi3]
         ${ubootCommon}
-        [pi3+]
-        ${ubootCommon}
+      ''
+        # [pi3+]
+        # ${ubootCommon}
+      + ''
         [pi02]
         ${ubootCommon}
-    
+      + ''
         # 32-bit unsupported
         # [pi1]
         # [pi2]
         # [pi0]
         # [pi0w]
-      '';
+      );
 
   # BOOT_ORDER: (pi reads the hex value RTL (LSB=>MSB))
   # 0x0 = SD-CARD-DETECT
@@ -131,6 +135,7 @@ in
     # ///////////////////======
     uBootVersion = "2022.04";
     useDefaultPatches = false;
+    withLogo = false;
     # \\\\\\\\\\\\\\\\\\\======
     config = [
       (helpers: with helpers; {
