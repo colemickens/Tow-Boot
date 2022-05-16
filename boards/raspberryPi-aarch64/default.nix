@@ -15,6 +15,12 @@ let
     # which is also how I want to handle some other things
     # plus (???) also isn't the the MBR device id? there's no such part id?
     partitionID = "00F800F8";
+    useLatestUboot = true;
+    etbc = {
+      uBootVersion = "2022.04";
+      useDefaultPatches = false;
+      withLogo = false;
+    };
   };
   cfgval = (f: p:
     let chk =
@@ -40,53 +46,41 @@ let
     disable_overscan=1
   '';
   configTxt =
-    pkgs.writeText "config.txt"
-      # https://www.raspberrypi.com/documentation/computers/config_txt.html#model-filters  
-      (''
-        # (implicit) all ########################################################
-        arm_64bit=1
-        enable_uart=1
-        avoid_warnings=1
-        kernel=${final_binary}
-        ${cfgval toBooint "upstream_kernel"}
-        ${cfgval toBooint "arm_boost"}
-        ${cfgval toString "dtparam"}
-        ${cfgval toString "dtoverlay"}
-        ${cfgval toBooint "uart_2ndstage"}
-        ${cfgval toBooint "hdmi_force_hotplug"}
-        ${cfgval toString "hdmi_drive"}
+    # https://www.raspberrypi.com/documentation/computers/config_txt.html#model-filters  
+    pkgs.writeText "config.txt" ''
+      # (implicit) all ########################################################
+      arm_64bit=1
+      enable_uart=1
+      avoid_warnings=1
+      kernel=${final_binary}
+      ${cfgval toBooint "upstream_kernel"}
+      ${cfgval toBooint "arm_boost"}
+      ${cfgval toString "dtparam"}
+      ${cfgval toString "dtoverlay"}
+      ${cfgval toBooint "uart_2ndstage"}
+      ${cfgval toBooint "hdmi_force_hotplug"}
+      ${cfgval toString "hdmi_drive"}
 
-        # TODO: pi3/pi02w might be broken because of:
-        # - https://github.com/raspberrypi/firmware/issues/1696#issuecomment-1041298571
-        # - if overlay is wrong, uart is wrong, u-boot/linux might do wrong thing
+      # TODO: pi3/pi02w might be broken because of:
+      # - https://github.com/raspberrypi/firmware/issues/1696#issuecomment-1041298571
+      # - if overlay is wrong, uart is wrong, u-boot/linux might do wrong thing
     
-        # TODO: I think dtparams can come after dtoverlay -_- .... add it to the list
+      # TODO: I think dtparams can come after dtoverlay -_- .... add it to the list
 
-        [pi4]
-        ${ubootPi4Common}
-      ''
-      #  [pi400]
-      #  ${ubootPi4Common}
-      #  [cm4]
-      #  ${ubootPi4Common}
-      + ''
-    
-        [pi3]
-        ${ubootCommon}
-      ''
-        # [pi3+]
-        # ${ubootCommon}
-      + ''
-
-        [pi02]
-        ${ubootCommon}
-      + ''
-        # 32-bit unsupported
-        # [pi1]
-        # [pi2]
-        # [pi0]
-        # [pi0w]
-      );
+      [pi4]
+      ${ubootPi4Common}
+      [pi400]
+      ${ubootPi4Common}
+      [cm4]
+      ${ubootPi4Common}
+   
+      [pi3]
+      ${ubootCommon}
+      [pi3+]
+      ${ubootCommon}
+      [pi02]
+      ${ubootCommon}
+    '';
 
   # BOOT_ORDER: (pi reads the hex value RTL (LSB=>MSB))
   # 0x0 = SD-CARD-DETECT
@@ -131,13 +125,8 @@ in
     soc = "generic-aarch64";
   };
 
-  Tow-Boot = {
+  Tow-Boot = cfg.etbc // {
     defconfig = lib.mkDefault "rpi_arm64_defconfig";
-    # ///////////////////======
-    uBootVersion = "2022.04";
-    useDefaultPatches = false;
-    withLogo = false;
-    # \\\\\\\\\\\\\\\\\\\======
     config = [
       (helpers: with helpers; {
         CMD_POWEROFF = no;
@@ -259,7 +248,8 @@ in
           # `upstream_kernel` fixup for `rpi02w`:
           # - ref: https://www.spinics.net/lists/arm-kernel/msg951388.html
           # - and: extlinux wanted it without the '-w'
-          dtbsrc="${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm2837-rpi-3-b.dtb"
+          # dtbsrc="${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm2837-rpi-3-b.dtb"
+          dtbsrc="${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm2837-rpi-3-b-plus.dtb"
           cp -v "$dtbsrc" "$target/upstream/bcm2837-rpi-zero-2-w.dtb"
           cp -v "$dtbsrc" "$target/upstream/bcm2837-rpi-zero-2.dtb"
         '';
@@ -274,11 +264,11 @@ in
       };
     };
   };
-  documentation.sections.installationInstructions = ''
-        ## Installation instructions
-
-        ${config.documentation.helpers.genericSharedStorageInstructionsTemplate { storage = "an SD card, USB drive (if the Raspberry Pi is configured correctly) or eMMC (for systems with eMMC)";
-    }}
-  '';
+  # documentation.sections.installationInstructions = ''
+  #   ## Installation instructions
+  #   ${config.documentation.helpers.genericSharedStorageInstructionsTemplate {
+  #     storage = "an SD card, USB drive (if the Raspberry Pi is configured correctly) or eMMC (for systems with eMMC)";
+  #   }}
+  # '';
 }
 
