@@ -152,6 +152,8 @@ in
             #
             # FIND + REMOUNT FIRMWARE (pull this to common script?)
             # TODO: mount firmware by the partition-id
+            sudo dd if="$self" of=/dev/disk/by-partlabel/''${mbr_disk_id}-01
+
             sudo mount -o remount,rw /disk/by-partlabel/TOWBOOT-FI
 
             #
