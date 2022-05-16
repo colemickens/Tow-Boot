@@ -6,7 +6,8 @@ let
     upstream_kernel = true;
     arm_boost = true;
     dtparam = "audio=on"; # "watchdog=on";
-    dtoverlay = null;
+    # dtoverlay = null;
+    dtoverlay = "disable-bt";
     uart_2ndstage = true;
     hdmi_force_hotplug = true;
     hdmi_drive = 2;
