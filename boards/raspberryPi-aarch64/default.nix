@@ -5,10 +5,11 @@ let
   cfg = {
     upstream_kernel = true;
     arm_boost = true;
-    dtparam = null; # "watchdog=on";
-    dtoverlay = "disable-bt";
+    dtparam = "audio=on"; # "watchdog=on";
+    dtoverlay = null;
     uart_2ndstage = true;
     hdmi_force_hotplug = true;
+    hdmi_drive = 2;
 
     # TODO: allow users to: have custom tow-boot, with special parts per device
     # which is also how I want to handle some other things
@@ -28,27 +29,59 @@ let
   };
 
   final_binary = "Tow-Boot.noenv.rpi_arm64.bin";
-  configTxt = pkgs.writeText "config.txt" ''
-    # all #####################################################################
-    arm_64bit=1
-    enable_uart=1
-    avoid_warnings=1
-    kernel=${final_binary}
-    ${cfgval toBooint "upstream_kernel"}
-    ${cfgval toBooint "arm_boost"}
-    ${cfgval toString "dtparam"}
-    ${cfgval toString "dtoverlay"}
-    ${cfgval toBooint "uart_2ndstage"}
-    ${cfgval toBooint "hdmi_force_hotplug"}
-  
-
-    # TODO: I think dtparams can come after dtoverlay -_- .... add it to the list
-    
-    [pi4] #####################################################################
+  ubootCommon = ''
+    # dtoverlay=disable-bt
+    core_freq=250
+    core_freq_min=250
+  '';
+  ubootPi4Common = ''
     enable_gic=1
     armstub=armstub8-gic.bin
     disable_overscan=1
   '';
+  configTxt =
+    pkgs.writeText "config.txt"
+      # https://www.raspberrypi.com/documentation/computers/config_txt.html#model-filters  
+      ''
+        # (implicit) all ########################################################
+        arm_64bit=1
+        enable_uart=1
+        avoid_warnings=1
+        kernel=${final_binary}
+        ${cfgval toBooint "upstream_kernel"}
+        ${cfgval toBooint "arm_boost"}
+        ${cfgval toString "dtparam"}
+        ${cfgval toString "dtoverlay"}
+        ${cfgval toBooint "uart_2ndstage"}
+        ${cfgval toBooint "hdmi_force_hotplug"}
+        ${cfgval toString "hdmi_drive"}
+
+        # TODO: pi3/pi02w might be broken because of:
+        # - https://github.com/raspberrypi/firmware/issues/1696#issuecomment-1041298571
+        # - if overlay is wrong, uart is wrong, u-boot/linux might do wrong thing
+    
+        # TODO: I think dtparams can come after dtoverlay -_- .... add it to the list
+
+        [pi4]
+        ${ubootPi4Common}
+        [pi400]
+        ${ubootPi4Common}
+        [cm4]
+        ${ubootPi4Common}
+
+        [pi3]
+        ${ubootCommon}
+        [pi3+]
+        ${ubootCommon}
+        [pi02]
+        ${ubootCommon}
+    
+        # 32-bit unsupported
+        # [pi1]
+        # [pi2]
+        # [pi0]
+        # [pi0w]
+      '';
 
   # BOOT_ORDER: (pi reads the hex value RTL (LSB=>MSB))
   # 0x0 = SD-CARD-DETECT
@@ -95,6 +128,10 @@ in
 
   Tow-Boot = {
     defconfig = lib.mkDefault "rpi_arm64_defconfig";
+    # ///////////////////======
+    uBootVersion = "2022.04";
+    useDefaultPatches = false;
+    # \\\\\\\\\\\\\\\\\\\======
     config = [
       (helpers: with helpers; {
         CMD_POWEROFF = no;
@@ -102,12 +139,12 @@ in
     ];
     patches = [
       ./0001-configs-rpi-allow-for-bigger-kernels.patch
-      ./0001-Tow-Boot-rpi-Increase-malloc-pool-up-to-64MiB-env.patch
-      # ./0001-rpi-Copy-properties-from-firmware-dtb-to-the-loaded-.patch
+      # ./0001-Tow-Boot-rpi-Increase-malloc-pool-up-to-64MiB-env.patch
+      ./0001-rpi-Copy-properties-from-firmware-dtb-to-the-loaded-.patch
 
       # Remove when updating to 2022.01
       # https://patchwork.ozlabs.org/project/uboot/list/?series=273129&archive=both&state=*
-      ./1-2-rpi-Update-the-Raspberry-Pi-doucmentation-URL.patch
+      # ./1-2-rpi-Update-the-Raspberry-Pi-doucmentation-URL.patch
     ];
     outputs.scripts = pkgs.symlinkJoin {
       name = "tow-boot-${config.device.identifier}-scripts";
