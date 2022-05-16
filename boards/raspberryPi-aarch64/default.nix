@@ -6,8 +6,7 @@ let
     upstream_kernel = true;
     arm_boost = true;
     dtparam = "audio=on"; # "watchdog=on";
-    # dtoverlay = null;
-    dtoverlay = "disable-bt";
+    dtoverlay = null;
     uart_2ndstage = true;
     hdmi_force_hotplug = true;
     hdmi_drive = 2;
@@ -36,12 +35,16 @@ let
   };
 
   final_binary = "Tow-Boot.noenv.rpi_arm64.bin";
+  # ubootCommon = ''
+  #   core_freq=250
+  #   core_freq_min=250
+  # '';
   ubootCommon = ''
-    # dtoverlay=disable-bt
-    core_freq=250
-    core_freq_min=250
+    core_freq=400
+    core_freq_min=400
   '';
   ubootPi4Common = ''
+    dtoverlay=disable-bt
     enable_gic=1
     armstub=armstub8-gic.bin
     disable_overscan=1
