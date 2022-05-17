@@ -14,13 +14,21 @@ let
     # TODO: allow users to: have custom tow-boot, with special parts per device
     # which is also how I want to handle some other things
     # plus (???) also isn't the the MBR device id? there's no such part id?
+
+    # INTERNAL1: partitionID
     partitionID = "00F800F8";
+    
+    # INTERNAL2: latest u-boot
     useLatestUboot = true;
     etbc = {
       uBootVersion = "2022.04";
       useDefaultPatches = false;
       withLogo = false;
     };
+    
+    # INTERNAL3: unstable (master) firmware
+    firmwarePackage = rpipkgs.raspberrypifw;
+    mainlinePackage = rpipkgs.linuxPackages_latest;
   };
   cfgval = (f: p:
     let chk =
@@ -236,25 +244,29 @@ in
         filesystem = "fat32";
         populateCommands = ''
           target="$PWD"
-          mkdir -p "$target/upstream"
                 
+          ## rpi boot config
           cp -v "${configTxt}" "$target/config.txt"
+          
+          ## rpi firmware / bootloader
+          fwb="${cfg.firmwarePackage}/share/raspberrypi/boot"
+          cp -vt "$target/" $fwb/bootcode.bin $fwb/fixup*.dat $fwb/start*.elf
+
+          ## rpi4 armstubs
           cp -vt "$target/" "${rpipkgs.raspberrypi-armstubs}/armstub8-gic.bin"
 
-          (
-            cd ${rpipkgs.raspberrypifw}/share/raspberrypi/boot
-            cp -vt "$target/" bootcode.bin fixup*.dat start*.elf
-            cp -vt "$target/" -r overlays
-          )
-
-          # kernel + dtbs
+          ## mainline (kernel, dtbs, !overlays)
+          # TODO: use `install` instead?
+          mkdir -p "$target/upstream"
           cp -vt "$target/upstream/" \
-            ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} \
-            ${rpipkgs.linuxPackages_latest.kernel}/dtbs/broadcom/bcm*rpi*.dtb
-
-          cp -vt "$target/" \
-             ${config.Tow-Boot.outputs.firmware}/binaries/${final_binary} \
+            "${config.Tow-Boot.outputs.firmware}/binaries/${final_binary}" \
+            ${cfg.mainlinePackage.kernel}/dtbs/broadcom/bcm*rpi*.dtb
+            
+          ## foundation (kernel, dtbs, overlays)
+          cp -vt -r "$target/" \
+            "${config.Tow-Boot.outputs.firmware}/binaries/${final_binary}" \
             ${rpipkgs.linuxPackages_rpi4.kernel}/dtbs/broadcom/bcm*rpi*.dtb
+            "${cfg.firmwarePackage}/share/raspberrypi/boot/overlays"
         '';
 
         # The build, since it includes misc. files from the Raspberry Pi Foundation
