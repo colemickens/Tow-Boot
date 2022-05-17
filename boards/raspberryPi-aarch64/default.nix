@@ -263,9 +263,9 @@ in
             ${cfg.mainlinePackage.kernel}/dtbs/broadcom/bcm*rpi*.dtb
             
           ## foundation (kernel, dtbs, overlays)
-          cp -vt -r "$target/" \
+          cp -vrt "$target/" \
             "${config.Tow-Boot.outputs.firmware}/binaries/${final_binary}" \
-            ${rpipkgs.linuxPackages_rpi4.kernel}/dtbs/broadcom/bcm*rpi*.dtb
+            ${rpipkgs.linuxPackages_rpi4.kernel}/dtbs/broadcom/bcm*rpi*.dtb \
             "${cfg.firmwarePackage}/share/raspberrypi/boot/overlays"
         '';
 
