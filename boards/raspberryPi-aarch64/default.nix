@@ -275,7 +275,7 @@ in
         fat32 = {
           partitionID = cfg.partitionID;
         };
-        label = "TOWBOOT-FW";
+        label = "TOW-BOOT-FI";
       };
     };
   };
