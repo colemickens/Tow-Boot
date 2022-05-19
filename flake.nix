@@ -13,7 +13,6 @@
           inputs = inputs;
           system = curSystem;
         };
-      
 
       nixosModules = [
         ./nixos/integration.nix
@@ -24,5 +23,8 @@
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = genAttrs supportedSystems;
       output = forAllSystems (system: (defaultOutputs system));
-    in output;
+    in {
+      devices = output.outputs;
+      nixosModules = nixosModules;
+    }
 }
