@@ -38,6 +38,11 @@ let
     in (lib.optionalString (chk != null) "${p}=${chk}")
   );
 
+  summaryTxt = pkgs.writeText "summary.txt" ''
+    kernel='foo'
+    firmwarePackage='bar'
+  '';
+  
   rpipkgs = import inputs.rpipkgs {
     system = pkgs.system;
   };

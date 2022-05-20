@@ -23,8 +23,7 @@
       supportedSystems = [ "x86_64-linux" "aarch64-linux" ];
       forAllSystems = genAttrs supportedSystems;
       output = forAllSystems (system: (defaultOutputs system));
-    in {
-      devices = output.outputs;
+    in output // {
       nixosModules = nixosModules;
-    }
+    };
 }
