@@ -27,7 +27,7 @@ let
     inherit additionalConfiguration device;
     modules = [{
       imports = [
-        configuration
+        (builtins.trace configuration.config configuration)
         (
           { lib, ... }:
           {

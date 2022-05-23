@@ -12,9 +12,11 @@ in
 rec {
   # Evaluates Tow-Boot, and the device config with the given additional modules.
   evalWith =
-    { modules
+    { modules ? []
     , device
     , additionalConfiguration ? {}
+    , system ? system
+    , specialArgs ? {}
     , baseModules ? (
       [
         ../../modules
@@ -26,8 +28,8 @@ rec {
     )
   }: evalConfig {
     inherit baseModules;
-    system = system;
-    specialArgs = { inherit inputs; };
+    inherit system;
+    inherit specialArgs;
     modules = []
       # `device` can be a couple of types.
       ++ (   if builtins.isAttrs device then [ device ]                    # An attrset is used directly
@@ -40,19 +42,6 @@ rec {
     ;
   };
 
-  evalFor = device: config: (
-    import ./eval-with-configuration.nix {
-      inherit
-        inputs
-        device
-      ;
-      configuration = {
-        # Special configs for imperative use only here
-        system.automaticCross = true;
-      } // config;
-    }
-  );
-
   keepEval = (eval: eval.config.device.inRelease);
 
   allDevices =
@@ -61,7 +50,7 @@ rec {
     (builtins.attrNames (builtins.readDir ../../boards))
   ;
 
-  evals = builtins.map (device: evalFor device { }) allDevices;
+  evals = builtins.map (device: evalWith { inherit device; }) allDevices;
 
   releasedDevicesEvaluations = builtins.filter keepEval evals;
 }

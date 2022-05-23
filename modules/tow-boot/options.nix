@@ -50,7 +50,7 @@ in
       };
 
       outputs.scripts = mkOption {
-        type = types.package;
+        type = types.attrsOf types.package;
         description = ''
           misc grab bag of anything a board might need to export TODO: this is awful
         '';

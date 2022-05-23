@@ -2,34 +2,7 @@
 
 let
   toBooint = (v: if v then "1" else "0");
-  cfg = {
-    upstream_kernel = true;
-    arm_boost = true;
-    dtparam = "audio=on"; # "watchdog=on";
-    dtoverlay = null;
-    uart_2ndstage = true;
-    hdmi_force_hotplug = true;
-    hdmi_drive = 2;
-
-    # TODO: allow users to: have custom tow-boot, with special parts per device
-    # which is also how I want to handle some other things
-    # plus (???) also isn't the the MBR device id? there's no such part id?
-
-    # INTERNAL1: partitionID
-    partitionID = "00F800F8";
-    
-    # INTERNAL2: latest u-boot
-    useLatestUboot = true;
-    etbc = {
-      uBootVersion = "2022.04";
-      useDefaultPatches = false;
-      withLogo = false;
-    };
-    
-    # INTERNAL3: unstable (master) firmware
-    firmwarePackage = rpipkgs.raspberrypifw;
-    mainlinePackage = rpipkgs.linuxPackages_latest;
-  };
+  cfg = config.Tow-Boot.rpi;
   cfgval = (f: p:
     let chk =
       if (builtins.hasAttr p cfg && cfg."${p}" != null)
@@ -38,29 +11,24 @@ let
     in (lib.optionalString (chk != null) "${p}=${chk}")
   );
 
-  summaryTxt = pkgs.writeText "summary.txt" ''
-    kernel='foo'
-    firmwarePackage='bar'
-  '';
-  
   rpipkgs = import inputs.rpipkgs {
     system = pkgs.system;
   };
 
-  final_binary = "Tow-Boot.noenv.rpi_arm64.bin";
-  # ubootCommon = ''
-  #   core_freq=250
-  #   core_freq_min=250
-  # '';
+  final_binary = builtins.trace "MBR_ID=${mbr_disk_id}" "Tow-Boot.noenv.rpi_arm64.bin";
   ubootCommon = ''
     core_freq=400
     core_freq_min=400
+    #dtoverlay=disable-bt
+    dtoverlay=vc4-kms-v3d
   '';
   ubootPi4Common = ''
-    dtoverlay=disable-bt
     enable_gic=1
     armstub=armstub8-gic.bin
     disable_overscan=1
+    # dtparam=watchdog=on
+    dtoverlay=disable-bt
+    dtoverlay=vc4-kms-v3d
   '';
   configTxt =
     # https://www.raspberrypi.com/documentation/computers/config_txt.html#model-filters  
@@ -69,11 +37,9 @@ let
       arm_64bit=1
       enable_uart=1
       avoid_warnings=1
+      arm_boost=1
+      upstream_kernel=1
       kernel=${final_binary}
-      ${cfgval toBooint "upstream_kernel"}
-      ${cfgval toBooint "arm_boost"}
-      ${cfgval toString "dtparam"}
-      ${cfgval toString "dtoverlay"}
       ${cfgval toBooint "uart_2ndstage"}
       ${cfgval toBooint "hdmi_force_hotplug"}
       ${cfgval toString "hdmi_drive"}
@@ -127,168 +93,190 @@ let
       --out $out \
         "$(readlink -f $dir/$orig)"
   '';
+
+  firmwareContents = pkgs.runCommandNoCC "firmware-contents" { } ''
+    mkdir $out
+    target="$out"
+
+    ## rpi boot config
+    # We assume that a user is customizing config.txt via a custom tow-boot build
+    cp -v "${configTxt}" "$target/config.txt"
+         
+    ## rpi firmware / bootloader
+    fwb="${cfg.firmwarePackage}/share/raspberrypi/boot"
+    cp -vt "$target/" $fwb/bootcode.bin $fwb/fixup*.dat $fwb/start*.elf
+
+    ## rpi4 armstubs
+    cp -vt "$target/" "${rpipkgs.raspberrypi-armstubs}/armstub8-gic.bin"
+
+    ## mainline (kernel, dtbs, !overlays)
+    mkdir -p "$target/upstream"
+    cp -vt "$target/upstream/" \
+      "${config.Tow-Boot.outputs.firmware}/binaries/${final_binary}" \
+      ${cfg.mainlineKernel}/dtbs/broadcom/bcm*rpi*.dtb
+            
+    ## foundation (kernel, dtbs, overlays)
+    cp -vrt "$target/" \
+      "${config.Tow-Boot.outputs.firmware}/binaries/${final_binary}" \
+      ${cfg.foundationKernel}/dtbs/broadcom/bcm*rpi*.dtb \
+      "${cfg.firmwarePackage}/share/raspberrypi/boot/overlays"
+  '';
+  populateCommands = ''
+    ${pkgs.rsync}/bin/rsync -v -r --delete "${firmwareContents}/" "$target/"
+  '';
+  mbr_disk_id = config.Tow-Boot.diskImage.mbr.diskID;
 in
 {
-  # TODO: and like why is this not passed through?
-  device = {
-    manufacturer = "Raspberry Pi";
-    name = "Combined AArch64";
-    identifier = lib.mkDefault "raspberryPi-aarch64";
-    productPageURL = "https://www.raspberrypi.com/products/";
+  options = {
+    Tow-Boot.rpi = {
+      uart_2ndstage = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = true;
+      };
+      hdmi_force_hotplug = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+      };
+      hdmi_drive = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+      };
+      firmwarePackage = lib.mkOption {
+        type = lib.types.package;
+        default = rpipkgs.raspberrypifw;
+      };
+      mainlineKernel = lib.mkOption {
+        type = lib.types.package;
+        default = rpipkgs.linuxPackages_latest.kernel;
+      };
+      foundationKernel = lib.mkOption {
+        type = lib.types.package;
+        default = rpipkgs.linuxPackages_rpi4.kernel;
+      };
+    };
   };
 
-  hardware = {
-    # Targets multiple broadcom SoCs
-    soc = "generic-aarch64";
-  };
+  config = {
+    # TODO: and like why is this not passed through?
+    device = {
+      manufacturer = "Raspberry Pi";
+      name = "Combined AArch64";
+      identifier = lib.mkDefault "raspberryPi-aarch64";
+      productPageURL = "https://www.raspberrypi.com/products/";
+    };
 
-  Tow-Boot = cfg.etbc // {
-    defconfig = lib.mkDefault "rpi_arm64_defconfig";
-    config = [
-      (helpers: with helpers; {
-        CMD_POWEROFF = no;
-      })
-    ];
-    patches = [
-      ./0001-configs-rpi-allow-for-bigger-kernels.patch
-      # ./0001-Tow-Boot-rpi-Increase-malloc-pool-up-to-64MiB-env.patch
-      ./0001-rpi-Copy-properties-from-firmware-dtb-to-the-loaded-.patch
+    hardware = {
+      # Targets multiple broadcom SoCs
+      soc = "generic-aarch64";
+    };
 
-      # Remove when updating to 2022.01
-      # https://patchwork.ozlabs.org/project/uboot/list/?series=273129&archive=both&state=*
-      # ./1-2-rpi-Update-the-Raspberry-Pi-doucmentation-URL.patch
-    ];
-    outputs.scripts = pkgs.symlinkJoin {
-      name = "tow-boot-${config.device.identifier}-scripts";
-      paths =
-        let updater = mbr_disk_id:
-          (pkgs.writeShellScriptBin "tow-boot-update-rpi" ''
+    Tow-Boot = (
+      {
+        defconfig = lib.mkDefault "rpi_arm64_defconfig";
+        config = [
+          (helpers: with helpers; {
+            CMD_POWEROFF = no;
+          })
+        ];
+        patches = [
+          ./0001-configs-rpi-allow-for-bigger-kernels.patch
+          # ./0001-Tow-Boot-rpi-Increase-malloc-pool-up-to-64MiB-env.patch
+          ./0001-rpi-Copy-properties-from-firmware-dtb-to-the-loaded-.patch
+
+          # Remove when updating to 2022.01
+          # https://patchwork.ozlabs.org/project/uboot/list/?series=273129&archive=both&state=*
+          # ./1-2-rpi-Update-the-Raspberry-Pi-doucmentation-URL.patch
+        ];
+        outputs.scripts = {
+          updateFirmware = pkgs.writeShellScriptBin "tow-boot-update" ''
             set -x
             set -euo pipefail
 
-            #
-            # FIND + REMOUNT FIRMWARE (pull this to common script?)
-            # TODO: mount firmware by the partition-id
-            sudo dd if="$self" of=/dev/disk/by-partlabel/''${mbr_disk_id}-01
+            target="/boot/firmware"
+            mkdir -p "$target"
+              
+            # TODO: check $target mathes the actual dev-mount that we (re)mount
 
-            sudo mount -o remount,rw /disk/by-partlabel/TOWBOOT-FI
+            function cleanup() {
+              mount -o remount,ro "/dev/disk/by-partuuid/${mbr_disk_id}-01"
+            }
+        
+            mount -o remount,rw "/dev/disk/by-partuuid/${mbr_disk_id}-01"
+            trap cleanup EXIT
+              
+            ${populateCommands}
 
+            echo "all done"
+          '';
+          updateEeprom = pkgs.writeShellScriptBin "tow-boot-rpi-eeprom-update" ''
             #
             # UPDATE EEPROM
             sudo ${rpipkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update -r || true
             sudo env BOOTFS=/boot/firmware \
               ${rpipkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update \
                 -d -f "${eepromBin}"
+          '';
+        };
 
-            #
-            # UPDATE FIRMWARE + TOW-BOOT
+        #TODO: refactor this to output all firmware to FIRMWARE_CONTENTS/
+        # TODO: refactor the populate commands to copy from ${outputs.firmware}/FIRMARE_CONTENTS
+        # outputs.firmware = lib.mkIf (config.device.identifier == "raspberryPi-aarch64") (
+        #   pkgs.callPackage (
+        #     { runCommandNoCC }:
 
-            # TODO: copy other files too...
-
-            # TODO: assert files are here, since they might move ("binaries" dir)
-
-            # TODO: `outputs.firmware` -> `outputs.bootloader` and then it passthru's outputs.firmware which
-            # contains the rpi stage-0 start4.elf, etc
-
-            cp -av "${config.Tow-Boot.outputs.firmware}/binaries/"* "/boot/firmware/"
-            cp -av "${configTxt}" "/boot/firmware/config.txt.$(date +'%s')"
-            cp -av "${configTxt}" "/boot/firmware/config.txt"
-
-            # TODO: if we need a reboot, maybe write a sentinel indicating such
-
-            #
-            # if not need update:
-            # - check for /boot/firmware/old, delete it
-            # TODO
-            # - unmount firmware
-            # otherwise:
-
-            printf "!!!\n!!!\nPLEASE REBOOT\n!!!\n!!!"
-          '');
-        in
-        [
-          (updater false)
-          (updater true)
-        ];
-    };
-
-    #TODO: refactor this to output all firmware to FIRMWARE_CONTENTS/
-    # TODO: refactor the populate commands to copy from ${outputs.firmware}/FIRMARE_CONTENTS
-    # outputs.firmware = lib.mkIf (config.device.identifier == "raspberryPi-aarch64") (
-    #   pkgs.callPackage (
-    #     { runCommandNoCC }:
-
-    #     runCommandNoCC "tow-boot-${config.device.identifier}" {} ''
-    #       (PS4=" $ "; set -x
-    #       mkdir -p $out/{binaries,config}
-    #       cp -v ${config.Tow-Boot.outputs.firmware}/binaries/Tow-Boot.noenv.bin $out/binaries/Tow-Boot.noenv.bin
-    #       cp -v ${config.Tow-Boot.outputs.firmware}/config/noenv.config $out/config/noenv.config
-    #       )
-    #     ''
-    #   ) { }
-    # );
-    builder.installPhase = ''
-      cp -v u-boot.bin $out/binaries/${final_binary}
-    '';
-
-    # TODO: why is there "outputs.firmware", "installerPhase" AND "populateCommands"... ?
-
-
-    # TODO: this option name is confusing given the lines below it literally
-    # "write" the binary into the firmware part (but I suspect "write" vs "copy" is the key)
-    # The Raspberry Pi firmware expects a filesystem to be used.
-    writeBinaryToFirmwarePartition = false;
-
-    diskImage = {
-      partitioningScheme = "mbr"; # why? the rpi boots fine from gpt, we should use it?
-      # except rpithreeb?
-    };
-    firmwarePartition = {
-      partitionType = "0C";
-      filesystem = {
-        filesystem = "fat32";
-        populateCommands = ''
-          target="$PWD"
-                
-          ## rpi boot config
-          cp -v "${configTxt}" "$target/config.txt"
-          
-          ## rpi firmware / bootloader
-          fwb="${cfg.firmwarePackage}/share/raspberrypi/boot"
-          cp -vt "$target/" $fwb/bootcode.bin $fwb/fixup*.dat $fwb/start*.elf
-
-          ## rpi4 armstubs
-          cp -vt "$target/" "${rpipkgs.raspberrypi-armstubs}/armstub8-gic.bin"
-
-          ## mainline (kernel, dtbs, !overlays)
-          # TODO: use `install` instead?
-          mkdir -p "$target/upstream"
-          cp -vt "$target/upstream/" \
-            "${config.Tow-Boot.outputs.firmware}/binaries/${final_binary}" \
-            ${cfg.mainlinePackage.kernel}/dtbs/broadcom/bcm*rpi*.dtb
-            
-          ## foundation (kernel, dtbs, overlays)
-          cp -vrt "$target/" \
-            "${config.Tow-Boot.outputs.firmware}/binaries/${final_binary}" \
-            ${rpipkgs.linuxPackages_rpi4.kernel}/dtbs/broadcom/bcm*rpi*.dtb \
-            "${cfg.firmwarePackage}/share/raspberrypi/boot/overlays"
+        #     runCommandNoCC "tow-boot-${config.device.identifier}" {} ''
+        #       (PS4=" $ "; set -x
+        #       mkdir -p $out/{binaries,config}
+        #       cp -v ${config.Tow-Boot.outputs.firmware}/binaries/Tow-Boot.noenv.bin $out/binaries/Tow-Boot.noenv.bin
+        #       cp -v ${config.Tow-Boot.outputs.firmware}/config/noenv.config $out/config/noenv.config
+        #       )
+        #     ''
+        #   ) { }
+        # );
+        # not sure what this is even for? What is using the "$out/binaries/NAME" as an API? Why is this configurable?
+        # esp since this already relies on the internals of the builder for 'u-boot.bin' file ?
+        # if anything, I feel like the builder should just take a "destination" and it knows how to place it
+        builder.installPhase = ''
+          cp -v u-boot.bin $out/binaries/${final_binary}
         '';
 
-        # The build, since it includes misc. files from the Raspberry Pi Foundation
-        # can get quite bigger, compared to other boards.
-        size = 32 * 1024 * 1024;
-        fat32 = {
-          partitionID = cfg.partitionID;
+        # TODO: why is there "outputs.firmware", "installerPhase" AND "populateCommands"... ?
+
+
+        # TODO: this option name is confusing given the lines below it literally
+        # "write" the binary into the firmware part (but I suspect "write" vs "copy" is the key)
+        # The Raspberry Pi firmware expects a filesystem to be used.
+        writeBinaryToFirmwarePartition = false;
+
+        diskImage = {
+          partitioningScheme = "mbr"; # rpi3b rom supposedly only supports MBR
         };
-        label = "TOW-BOOT-FI";
-      };
-    };
+        firmwarePartition = {
+          partitionType = "0C";
+          filesystem = {
+            filesystem = "fat32";
+            populateCommands = ''
+              target=$(pwd)
+              ${populateCommands}
+            '';
+
+            # The build, since it includes misc. files from the Raspberry Pi Foundation
+            # can get quite bigger, compared to other boards.
+            size = 32 * 1024 * 1024;
+            fat32 = {
+              partitionID = mbr_disk_id;
+            };
+            label = "TOW-BOOT-FI";
+          };
+        };
+      }
+    );
+    # documentation.sections.installationInstructions = ''
+    #   ## Installation instructions
+    #   ${config.documentation.helpers.genericSharedStorageInstructionsTemplate {
+    #     storage = "an SD card, USB drive (if the Raspberry Pi is configured correctly) or eMMC (for systems with eMMC)";
+    #   }}
+    # '';
   };
-  # documentation.sections.installationInstructions = ''
-  #   ## Installation instructions
-  #   ${config.documentation.helpers.genericSharedStorageInstructionsTemplate {
-  #     storage = "an SD card, USB drive (if the Raspberry Pi is configured correctly) or eMMC (for systems with eMMC)";
-  #   }}
-  # '';
 }
 

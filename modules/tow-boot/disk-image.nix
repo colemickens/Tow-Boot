@@ -53,7 +53,7 @@ in
         mbr = {
           # In theory this shouldn't be static, every partition should have a
           # unique identifier, but that's not really possible here.
-          diskID = "01234567";
+          diskID = lib.mkDefault "01234567";
         };
         partitioningScheme = lib.mkDefault "gpt";
         partitions = mkBefore [
