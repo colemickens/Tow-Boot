@@ -17,9 +17,12 @@ let
 
   final_binary = builtins.trace "MBR_ID=${mbr_disk_id}" "Tow-Boot.noenv.rpi_arm64.bin";
   ubootCommon = ''
-    core_freq=400
-    core_freq_min=400
-    #dtoverlay=disable-bt
+    # core_freq=400
+    # core_freq_min=400
+    # dtoverlay=disable-bt
+    # hdmi_safe=1
+    # hdmi_drive=2
+    hdmi_force_hotplug=1
     dtoverlay=vc4-kms-v3d
   '';
   ubootPi4Common = ''
@@ -27,21 +30,28 @@ let
     armstub=armstub8-gic.bin
     disable_overscan=1
     # dtparam=watchdog=on
+    hdmi_force_hotplug=1
     dtoverlay=disable-bt
     dtoverlay=vc4-kms-v3d
   '';
   configTxt =
     # https://www.raspberrypi.com/documentation/computers/config_txt.html#model-filters  
     pkgs.writeText "config.txt" ''
-      # (implicit) all ########################################################
+      # firmwarePackage: ${cfg.firmwarePackage.name}
+      # foundationKernel: ${cfg.foundationKernel.name}
+      # mainlineKernel: ${cfg.mainlineKernel.name}
+      # eepromPackage: ${cfg.eepromPackage.name}
+      # armstubsPackage: ${cfg.armstubsPackage.name}
+      
+      [all]
       arm_64bit=1
       enable_uart=1
       avoid_warnings=1
-      arm_boost=1
       upstream_kernel=1
       kernel=${final_binary}
       ${cfgval toBooint "uart_2ndstage"}
       ${cfgval toBooint "hdmi_force_hotplug"}
+      ${cfgval toBooint "arm_boost"}
       ${cfgval toString "hdmi_drive"}
 
       # TODO: pi3/pi02w might be broken because of:
@@ -71,24 +81,25 @@ let
   # 0x2 = NETWORK
   # 0x3 = RPIBOOT
   # 0x4 = USB-MSD
-  # 0x4 = BCM-USB-MSD
-  # 0x4 = NVME
-  # 0x4 = STOP
-  # 0x4 = RESTART
+  # 0x_ = BCM-USB-MSD
+  # 0x_ = NVME
+  # 0x_ = STOP
+  # 0xf = RESTART
   bootconfTxt = pkgs.writeText "bootconf.txt" ''
     [all]
     BOOT_UART=1
     ENABLE_SELF_UPDATE=1
-    BOOT_ORDER=0xf2146 # NVME => USB-MSB => SD-CARD => NETWORK => RESTART
+    # BOOT_ORDER=0xf2146 # NVME => USB-MSB => SD-CARD => NETWORK => RESTART
+    BOOT_ORDER=0xf241 # SD-CARD => USB-MSD => NETWORK => RESTART
   '';
   eepromBin = pkgs.runCommandNoCC "pieeprom.bin" { } ''
     set -x
     set -euo pipefail
 
-    dir="${rpipkgs.raspberrypi-eeprom}/share/rpi-eeprom/stable"
+    dir="${cfg.eepromPackage}/share/rpi-eeprom/stable"
     orig="$(ls $dir | grep pieeprom | sort | tail -1)"
 
-    ${rpipkgs.raspberrypi-eeprom}/bin/rpi-eeprom-config \
+    ${cfg.eepromPackage}/bin/rpi-eeprom-config \
       --config "${bootconfTxt}" \
       --out $out \
         "$(readlink -f $dir/$orig)"
@@ -107,7 +118,7 @@ let
     cp -vt "$target/" $fwb/bootcode.bin $fwb/fixup*.dat $fwb/start*.elf
 
     ## rpi4 armstubs
-    cp -vt "$target/" "${rpipkgs.raspberrypi-armstubs}/armstub8-gic.bin"
+    cp -vt "$target/" "${cfg.armstubsPackage}/armstub8-gic.bin"
 
     ## mainline (kernel, dtbs, !overlays)
     mkdir -p "$target/upstream"
@@ -129,6 +140,7 @@ in
 {
   options = {
     Tow-Boot.rpi = {
+      # configtxt options
       uart_2ndstage = lib.mkOption {
         type = lib.types.nullOr lib.types.bool;
         default = true;
@@ -141,9 +153,22 @@ in
         type = lib.types.nullOr lib.types.int;
         default = null;
       };
+      arm_boost = lib.mkOption {
+        type = lib.types.nullOr lib.types.int;
+        default = null;
+      };
+      # package overrides
       firmwarePackage = lib.mkOption {
         type = lib.types.package;
         default = rpipkgs.raspberrypifw;
+      };
+      eepromPackage = lib.mkOption {
+        type = lib.types.package;
+        default = rpipkgs.raspberrypi-eeprom;
+      };
+      armstubsPackage = lib.mkOption {
+        type = lib.types.package;
+        default = rpipkgs.raspberrypi-armstubs;
       };
       mainlineKernel = lib.mkOption {
         type = lib.types.package;
@@ -211,9 +236,9 @@ in
           updateEeprom = pkgs.writeShellScriptBin "tow-boot-rpi-eeprom-update" ''
             #
             # UPDATE EEPROM
-            sudo ${rpipkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update -r || true
+            sudo ${cfg.eepromPackage}/bin/rpi-eeprom-update -r || true
             sudo env BOOTFS=/boot/firmware \
-              ${rpipkgs.raspberrypi-eeprom}/bin/rpi-eeprom-update \
+              ${cfg.eepromPackage}/bin/rpi-eeprom-update \
                 -d -f "${eepromBin}"
           '';
         };
