@@ -1,79 +1,69 @@
 { config, lib, pkgs, inputs, ... }:
 
 let
-  toBooint = (v: if v then "1" else "0");
   cfg = config.Tow-Boot.rpi;
-  cfgval = (f: p:
-    let chk =
-      if (builtins.hasAttr p cfg && cfg."${p}" != null)
-      then (f cfg."${p}")
-      else null;
-    in (lib.optionalString (chk != null) "${p}=${chk}")
-  );
 
   rpipkgs = import inputs.rpipkgs {
-    system = pkgs.system;
+    system = pkgs.system; # TODO: ?
   };
 
-  final_binary = builtins.trace "MBR_ID=${mbr_disk_id}" "Tow-Boot.noenv.rpi_arm64.bin";
+  final_binary = "Tow-Boot.noenv.rpi_arm64.bin";
   ubootCommon = ''
-    # core_freq=400
-    # core_freq_min=400
-    # dtoverlay=disable-bt
-    # hdmi_safe=1
-    # hdmi_drive=2
-    hdmi_force_hotplug=1
-    dtoverlay=vc4-kms-v3d
+    core_freq=400
+    core_freq_min=400
   '';
   ubootPi4Common = ''
     enable_gic=1
     armstub=armstub8-gic.bin
-    disable_overscan=1
-    # dtparam=watchdog=on
-    hdmi_force_hotplug=1
-    dtoverlay=disable-bt
-    dtoverlay=vc4-kms-v3d
+    dtoverlay=disable-bt # TODO: is this _needed_ for u-boot?
   '';
   configTxt =
-    # https://www.raspberrypi.com/documentation/computers/config_txt.html#model-filters  
-    pkgs.writeText "config.txt" ''
-      # firmwarePackage: ${cfg.firmwarePackage.name}
-      # foundationKernel: ${cfg.foundationKernel.name}
-      # mainlineKernel: ${cfg.mainlineKernel.name}
-      # eepromPackage: ${cfg.eepromPackage.name}
-      # armstubsPackage: ${cfg.armstubsPackage.name}
+    let
+      toBooint = (v: if v then "1" else "0");
+      opt = (f: p:
+        let chk =
+          if (builtins.hasAttr p cfg && cfg."${p}" != null)
+          then (f cfg."${p}")
+          else null;
+        in
+        (lib.optionalString (chk != null) ''
+          ${p}=${chk}
+        '')
+      );
+    in
+    pkgs.writeText "config.txt"
+      (''
+        # firmwarePackage: ${cfg.firmwarePackage.name}
+        # foundationKernel: ${cfg.foundationKernel.name}
+        # mainlineKernel: ${cfg.mainlineKernel.name}
+        # eepromPackage: ${cfg.eepromPackage.name}
+        # armstubsPackage: ${cfg.armstubsPackage.name}
       
-      [all]
-      arm_64bit=1
-      enable_uart=1
-      avoid_warnings=1
-      upstream_kernel=1
-      kernel=${final_binary}
-      ${cfgval toBooint "uart_2ndstage"}
-      ${cfgval toBooint "hdmi_force_hotplug"}
-      ${cfgval toBooint "arm_boost"}
-      ${cfgval toString "hdmi_drive"}
+        [all]
+        arm_64bit=1
+        enable_uart=1
+        avoid_warnings=1
+        upstream_kernel=1
+        kernel=${final_binary}
+      ''
+      + (opt toBooint "uart_2ndstage")
+      + (opt toBooint "hdmi_force_hotplug")
+      + (opt toBooint "arm_boost")
+      + (opt toString "hdmi_drive")
+      + (opt toBooint "hdmi_safe")
+      + (opt toBooint "disable_overscan")
+      + (lib.optionalString cfg.enable_vc4_kms ''
+        dtoverlay=vc4-kms-v3d
+      '') +
+      ''
 
-      # TODO: pi3/pi02w might be broken because of:
-      # - https://github.com/raspberrypi/firmware/issues/1696#issuecomment-1041298571
-      # - if overlay is wrong, uart is wrong, u-boot/linux might do wrong thing
-    
-      # TODO: I think dtparams can come after dtoverlay -_- .... add it to the list
-
-      [pi4]
-      ${ubootPi4Common}
-      [pi400]
-      ${ubootPi4Common}
-      [cm4]
-      ${ubootPi4Common}
-   
-      [pi3]
-      ${ubootCommon}
-      [pi3+]
-      ${ubootCommon}
-      [pi02]
-      ${ubootCommon}
-    '';
+        [pi4]
+        ${ubootPi4Common}
+        [pi3]
+        ${ubootCommon}
+        [pi02]
+        ${ubootCommon}
+      '');
 
   # BOOT_ORDER: (pi reads the hex value RTL (LSB=>MSB))
   # 0x0 = SD-CARD-DETECT
@@ -153,9 +143,21 @@ in
         type = lib.types.nullOr lib.types.int;
         default = null;
       };
+      hdmi_safe = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+      };
+      disable_overscan = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+      };
       arm_boost = lib.mkOption {
         type = lib.types.nullOr lib.types.int;
         default = null;
+      };
+      enable_vc4_kms = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = true;
       };
       # package overrides
       firmwarePackage = lib.mkOption {
