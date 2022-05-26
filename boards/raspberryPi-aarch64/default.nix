@@ -8,18 +8,10 @@ let
   };
 
   final_binary = "Tow-Boot.noenv.rpi_arm64.bin";
-  ubootCommon = ''
-    core_freq=400
-    core_freq_min=400
-  '';
-  ubootPi4Common = ''
-    enable_gic=1
-    armstub=armstub8-gic.bin
-    dtoverlay=disable-bt # TODO: is this _needed_ for u-boot?
-  '';
   configTxt =
     let
       toBooint = (v: if v then "1" else "0");
+      toStr = (v: toString v);
       opt = (f: p:
         let chk =
           if (builtins.hasAttr p cfg && cfg."${p}" != null)
@@ -30,6 +22,19 @@ let
           ${p}=${chk}
         '')
       );
+      ubootCommon = ''
+        core_freq=400
+        core_freq_min=400
+      '' + (lib.optionalString cfg.enable_vc4_kms ''
+        dtoverlay=vc4-kms-v3d
+      '');
+      ubootPi4Common = ''
+        enable_gic=1
+        armstub=armstub8-gic.bin
+        dtoverlay=disable-bt # TODO: is this _needed_ for u-boot?
+      '' + (lib.optionalString cfg.enable_vc4_kms ''
+        dtoverlay=vc4-kms-v3d-pi4,cma-384
+      '');
     in
     pkgs.writeText "config.txt"
       (''
@@ -49,13 +54,14 @@ let
       + (opt toBooint "uart_2ndstage")
       + (opt toBooint "hdmi_force_hotplug")
       + (opt toBooint "arm_boost")
-      + (opt toString "hdmi_drive")
+      + (opt toStr "hdmi_drive")
       + (opt toBooint "hdmi_safe")
+      + (opt toBooint "hdmi_enable_4kp60")
+      + (opt toBooint "hdmi_ignore_cec")
       + (opt toBooint "disable_overscan")
-      + (lib.optionalString cfg.enable_vc4_kms ''
-        dtoverlay=vc4-kms-v3d
-      '') +
-      ''
+      + (opt toBooint "disable_fw_kms_setup")
+      + (opt toStr "gpu_mem") # TODO: This should be per-device-class somehow (use a submodule, allow "pi4" = { submodule } )
+      + ''
 
         [pi4]
         ${ubootPi4Common}
@@ -147,7 +153,15 @@ in
         type = lib.types.nullOr lib.types.bool;
         default = null;
       };
+      hdmi_ignore_cec = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = true;
+      };
       disable_overscan = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+      };
+      disable_fw_kms_setup = lib.mkOption {
         type = lib.types.nullOr lib.types.bool;
         default = null;
       };
@@ -158,6 +172,14 @@ in
       enable_vc4_kms = lib.mkOption {
         type = lib.types.nullOr lib.types.bool;
         default = true;
+      };
+      gpu_mem = lib.mkOption {
+        type = lib.types.nullOr lib.types.str;
+        default = null;
+      };
+      hdmi_enable_4kp60 = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
       };
       # package overrides
       firmwarePackage = lib.mkOption {
