@@ -7,9 +7,18 @@
 let
   cfg = config.tow-boot;
   tb = inputs.tow-boot;
-  towbootBuild = (
-    tb.devicesWith.${pkgs.system}.${cfg.device} cfg.extraConfig
-  );
+  towbootBuild =
+    let
+      devBuilder = tb.devicesWith.${pkgs.system}.${cfg.device};
+      userConfig = {
+        configuration = {
+          config = {
+            Tow-Boot = cfg.config;
+          };
+        };
+      };
+    in
+      (devBuilder userConfig);
   tbOutputs = towbootBuild.config.Tow-Boot.outputs;
 in
 {
@@ -24,9 +33,9 @@ in
         type = lib.types.str;
         default = "raspberryPi-aarch64";
       };
-      extraConfig = lib.mkOption {
+      config = lib.mkOption {
         # type = lib.types.attrsOf lib.types.anything;
-        type = lib.types.attrsOf lib.types.anything;
+        type = lib.types.anything;
         default = {};
       };
     };

@@ -19,21 +19,36 @@ let
           else null;
         in
         (lib.optionalString (chk != null) ''
-          ${p}=${chk}
+          ${p}=${chk}   # Tow-Boot.config.rpi.${p}
         '')
       );
-      ubootCommon = ''
-        core_freq=400
-        core_freq_min=400
-      '' + (lib.optionalString cfg.enable_vc4_kms ''
-        dtoverlay=vc4-kms-v3d
+      # TODO: pretty sure pi3- prefix isn't needed
+      # these aren't doing shit on either pi4 or pi3b with mainline
+      # (even with kernel generation DTB off)
+      configTxtPi_2837 = (''
+      '') + (lib.optionalString cfg.disable_bluetooth ''
+        dtoverlay=pi3-disable-bt   # Tow-Boot.config.rpi.disable_bluetooth
+      '') + (lib.optionalString cfg.disable_wifi ''
+        dtoverlay=pi3-disable-wifi # Tow-Boot.config.rpi.disable_wifi
+      '') + (lib.optionalString cfg.enable_vc4_kms ''
+        dtoverlay=vc4-kms-v3d      # Tow-Boot.config.rpi.enable_vc4_kms
       '');
-      ubootPi4Common = ''
+      configTxtPi3 = configTxtPi_2837 + (''
+        gpu_mem=512                # Tow-Boot.config.rpi.enable_vc4_kms
+      '');
+      configTxtPi02 = configTxtPi_2837 + (''
+        gpu_mem=128                # Tow-Boot.config.rpi.enable_vc4_kms
+      '');
+      configTxtPi4 = (''
         enable_gic=1
         armstub=armstub8-gic.bin
-        dtoverlay=disable-bt # TODO: is this _needed_ for u-boot?
-      '' + (lib.optionalString cfg.enable_vc4_kms ''
-        dtoverlay=vc4-kms-v3d-pi4,cma-384
+      '') + (lib.optionalString cfg.disable_bluetooth ''
+        dtoverlay=disable-bt       # Tow-Boot.config.rpi.disable_bluetooth
+      '') + (lib.optionalString cfg.disable_wifi ''
+        dtoverlay=disable-wifi     # Tow-Boot.config.rpi.disable_wifi
+      '') + (lib.optionalString cfg.enable_vc4_kms ''
+        dtoverlay=vc4-kms-v3d-pi4  # Tow-Boot.config.rpi.enable_vc4_kms
+        gpu_mem=256                # Tow-Boot.config.rpi.enable_vc4_kms
       '');
     in
     pkgs.writeText "config.txt"
@@ -56,19 +71,19 @@ let
       + (opt toBooint "arm_boost")
       + (opt toStr "hdmi_drive")
       + (opt toBooint "hdmi_safe")
+      + (opt toBooint "force_turbo")
       + (opt toBooint "hdmi_enable_4kp60")
       + (opt toBooint "hdmi_ignore_cec")
       + (opt toBooint "disable_overscan")
       + (opt toBooint "disable_fw_kms_setup")
-      + (opt toStr "gpu_mem") # TODO: This should be per-device-class somehow (use a submodule, allow "pi4" = { submodule } )
       + ''
 
         [pi4]
-        ${ubootPi4Common}
+        ${configTxtPi4}
         [pi3]
-        ${ubootCommon}
+        ${configTxtPi3}
         [pi02]
-        ${ubootCommon}
+        ${configTxtPi02}
       '');
 
   # BOOT_ORDER: (pi reads the hex value RTL (LSB=>MSB))
@@ -129,7 +144,7 @@ let
       "${cfg.firmwarePackage}/share/raspberrypi/boot/overlays"
   '';
   populateCommands = ''
-    ${pkgs.rsync}/bin/rsync -v -r --delete "${firmwareContents}/" "$target/"
+    ${pkgs.rsync}/bin/rsync --checksum -v -r --delete "${firmwareContents}/" "$target/"
   '';
   mbr_disk_id = config.Tow-Boot.diskImage.mbr.diskID;
 in
@@ -153,6 +168,10 @@ in
         type = lib.types.nullOr lib.types.bool;
         default = null;
       };
+      force_turbo = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+      };
       hdmi_ignore_cec = lib.mkOption {
         type = lib.types.nullOr lib.types.bool;
         default = true;
@@ -169,17 +188,22 @@ in
         type = lib.types.nullOr lib.types.int;
         default = null;
       };
+      hdmi_enable_4kp60 = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+      };
+      # custom
       enable_vc4_kms = lib.mkOption {
         type = lib.types.nullOr lib.types.bool;
         default = true;
       };
-      gpu_mem = lib.mkOption {
-        type = lib.types.nullOr lib.types.str;
-        default = null;
-      };
-      hdmi_enable_4kp60 = lib.mkOption {
+      disable_bluetooth = lib.mkOption {
         type = lib.types.nullOr lib.types.bool;
-        default = null;
+        default = true;
+      };
+      disable_wifi = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = false;
       };
       # package overrides
       firmwarePackage = lib.mkOption {
@@ -237,20 +261,30 @@ in
           # ./1-2-rpi-Update-the-Raspberry-Pi-doucmentation-URL.patch
         ];
         outputs.scripts = {
+          # TODO: yeesh. commit to findmnt or require /boot/firmware to
+          # be the mntpt? maybe we confirm the findmnt is right
+          # then we remount it. if its in wrong place or wrong part, the user
+          # must intervene.
           updateFirmware = pkgs.writeShellScriptBin "tow-boot-update" ''
             set -x
             set -euo pipefail
 
+            firmpart="/dev/disk/by-partuuid/${mbr_disk_id}-01"
             target="/boot/firmware"
-            mkdir -p "$target"
+            [[ -d "$target" ]] || mkdir "$target" # no -p because we assume separate boot
               
-            # TODO: check $target mathes the actual dev-mount that we (re)mount
+            if [[ "$target" !=  "$(findmnt "$firmpart" -no "target")" ]];
+            then
+              printf "tow-boot-update:: the expected /boot/firmware isn't mounted!\n" \
+                >/dev/stderr
+              exit 0
+            fi
 
             function cleanup() {
-              mount -o remount,ro "/dev/disk/by-partuuid/${mbr_disk_id}-01"
+              mount -o remount,ro "$firmpart"
             }
         
-            mount -o remount,rw "/dev/disk/by-partuuid/${mbr_disk_id}-01"
+            mount -o remount,rw "$firmpart"
             trap cleanup EXIT
               
             ${populateCommands}
