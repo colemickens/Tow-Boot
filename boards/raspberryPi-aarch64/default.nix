@@ -63,7 +63,7 @@ let
         arm_64bit=1
         enable_uart=1
         avoid_warnings=1
-        upstream_kernel=1
+        upstream_kernel=${toBooint cfg.upstream_kernel}
         kernel=${final_binary}
       ''
       + (opt toBooint "uart_2ndstage")
@@ -152,6 +152,10 @@ in
   options = {
     Tow-Boot.rpi = {
       # configtxt options
+      upstream_kernel = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = true;
+      };
       uart_2ndstage = lib.mkOption {
         type = lib.types.nullOr lib.types.bool;
         default = true;
