@@ -12,6 +12,7 @@ let
     let
       toBooint = (v: if v then "1" else "0");
       toStr = (v: toString v);
+      toIntint = (v: toString v);
       opt = (f: p:
         let chk =
           if (builtins.hasAttr p cfg && cfg."${p}" != null)
@@ -25,31 +26,28 @@ let
       # TODO: pretty sure pi3- prefix isn't needed
       # these aren't doing shit on either pi4 or pi3b with mainline
       # (even with kernel generation DTB off)
-      configTxtPi_2837 = (''
-      '') + (lib.optionalString cfg.disable_bluetooth ''
-        dtoverlay=pi3-disable-bt   # Tow-Boot.config.rpi.disable_bluetooth
-      '') + (lib.optionalString cfg.disable_wifi ''
-        dtoverlay=pi3-disable-wifi # Tow-Boot.config.rpi.disable_wifi
-      '') + (lib.optionalString cfg.enable_vc4_kms ''
-        dtoverlay=vc4-kms-v3d      # Tow-Boot.config.rpi.enable_vc4_kms
+      configTxtPi3 = (''
+        gpu_mem=512                # Tow-Boot.config.rpi.enable_vc4_kms # TODO
+        core_freq=300
+        core_freq_min=300
       '');
-      configTxtPi3 = configTxtPi_2837 + (''
-        gpu_mem=512                # Tow-Boot.config.rpi.enable_vc4_kms
-      '');
-      configTxtPi02 = configTxtPi_2837 + (''
-        gpu_mem=128                # Tow-Boot.config.rpi.enable_vc4_kms
+      configTxtPi02 = (''
+        gpu_mem=128                # Tow-Boot.config.rpi.enable_vc4_kms # TODO
       '');
       configTxtPi4 = (''
         enable_gic=1
         armstub=armstub8-gic.bin
-      '') + (lib.optionalString cfg.disable_bluetooth ''
-        dtoverlay=disable-bt       # Tow-Boot.config.rpi.disable_bluetooth
-      '') + (lib.optionalString cfg.disable_wifi ''
-        dtoverlay=disable-wifi     # Tow-Boot.config.rpi.disable_wifi
-      '') + (lib.optionalString cfg.enable_vc4_kms ''
-        dtoverlay=vc4-kms-v3d-pi4  # Tow-Boot.config.rpi.enable_vc4_kms
+      '') + (lib.optionalString (cfg.enable_vc4_kms && !cfg.upstream_kernel) ''
         gpu_mem=256                # Tow-Boot.config.rpi.enable_vc4_kms
-      '');
+      '') + (lib.optionalString (cfg.enable_vc4_kms && cfg.upstream_kernel) ''
+        gpu_mem=256                # Tow-Boot.config.rpi.enable_vc4_kms
+      '')
+      + (lib.optionalString ((cfg.hdmi_enable_4kp60 != null) && cfg.hdmi_enable_4kp60) ''
+          hdmi_enable_4kp60=1
+          core_freq=600
+          core_freq_min=600
+      '')
+      ;
     in
     pkgs.writeText "config.txt"
       (''
@@ -69,13 +67,19 @@ let
       + (opt toBooint "uart_2ndstage")
       + (opt toBooint "hdmi_force_hotplug")
       + (opt toBooint "arm_boost")
+      + (opt toIntint "initial_boost")
       + (opt toStr "hdmi_drive")
       + (opt toBooint "hdmi_safe")
       + (opt toBooint "force_turbo")
-      + (opt toBooint "hdmi_enable_4kp60")
       + (opt toBooint "hdmi_ignore_cec")
       + (opt toBooint "disable_overscan")
       + (opt toBooint "disable_fw_kms_setup")
+      + (lib.optionalString (cfg.enable_watchdog != null && cfg.enable_watchdog) ''
+          dtparam=watchdog=on
+        '')
+      + (lib.optionalString (cfg.upstream_kernel != null && !cfg.upstream_kernel) ''
+          os_prefix=foundation/
+        '')
       + ''
 
         [pi4]
@@ -128,6 +132,8 @@ let
     fwb="${cfg.firmwarePackage}/share/raspberrypi/boot"
     cp -vt "$target/" $fwb/bootcode.bin $fwb/fixup*.dat $fwb/start*.elf
 
+    ## rpi firmware DTBs
+
     ## rpi4 armstubs
     cp -vt "$target/" "${cfg.armstubsPackage}/armstub8-gic.bin"
 
@@ -138,13 +144,17 @@ let
       ${cfg.mainlineKernel}/dtbs/broadcom/bcm*rpi*.dtb
             
     ## foundation (kernel, dtbs, overlays)
-    cp -vrt "$target/" \
+    mkdir -p "$target/foundation"
+    cp -vrt "$target/foundation" \
       "${config.Tow-Boot.outputs.firmware}/binaries/${final_binary}" \
-      ${cfg.foundationKernel}/dtbs/broadcom/bcm*rpi*.dtb \
-      "${cfg.firmwarePackage}/share/raspberrypi/boot/overlays"
+      "${cfg.firmwarePackage}/share/raspberrypi/boot/overlays" \
+      $fwb/*.dtb
+    
+    # we don't actually need this since the FW distributes DTBs:
+    #  ''${cfg.foundationKernel}/dtbs/broadcom/bcm*rpi*.dtb \
   '';
   populateCommands = ''
-    ${pkgs.rsync}/bin/rsync --checksum -v -r --delete "${firmwareContents}/" "$target/"
+    ${pkgs.rsync}/bin/rsync --info=progress2 --checksum -v -r --delete "${firmwareContents}/" "$target/"
   '';
   mbr_disk_id = config.Tow-Boot.diskImage.mbr.diskID;
 in
@@ -189,6 +199,10 @@ in
         default = null;
       };
       arm_boost = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+      };
+      initial_boost = lib.mkOption {
         type = lib.types.nullOr lib.types.int;
         default = null;
       };
@@ -200,6 +214,10 @@ in
       enable_vc4_kms = lib.mkOption {
         type = lib.types.nullOr lib.types.bool;
         default = true;
+      };
+      enable_watchdog = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
       };
       disable_bluetooth = lib.mkOption {
         type = lib.types.nullOr lib.types.bool;
