@@ -27,25 +27,25 @@ let
       # these aren't doing shit on either pi4 or pi3b with mainline
       # (even with kernel generation DTB off)
       configTxtPi3 = (''
-        gpu_mem=512                # Tow-Boot.config.rpi.enable_vc4_kms # TODO
-        core_freq=300
-        core_freq_min=300
+        # gpu_mem=512                # Tow-Boot.config.rpi.enable_vc4_kms # TODO
+        # core_freq=300
+        # core_freq_min=300
       '');
       configTxtPi02 = (''
-        gpu_mem=128                # Tow-Boot.config.rpi.enable_vc4_kms # TODO
+        # gpu_mem=128                # Tow-Boot.config.rpi.enable_vc4_kms # TODO
       '');
       configTxtPi4 = (''
         enable_gic=1
         armstub=armstub8-gic.bin
       '') + (lib.optionalString (cfg.enable_vc4_kms && !cfg.upstream_kernel) ''
-        gpu_mem=256                # Tow-Boot.config.rpi.enable_vc4_kms
+        # gpu_mem=256                # Tow-Boot.config.rpi.enable_vc4_kms
       '') + (lib.optionalString (cfg.enable_vc4_kms && cfg.upstream_kernel) ''
-        gpu_mem=256                # Tow-Boot.config.rpi.enable_vc4_kms
+        # gpu_mem=256                # Tow-Boot.config.rpi.enable_vc4_kms
       '')
       + (lib.optionalString ((cfg.hdmi_enable_4kp60 != null) && cfg.hdmi_enable_4kp60) ''
           hdmi_enable_4kp60=1
-          core_freq=600
-          core_freq_min=600
+          # core_freq=600
+          # core_freq_min=600
       '')
       ;
     in
@@ -72,6 +72,7 @@ let
       + (opt toBooint "hdmi_safe")
       + (opt toBooint "force_turbo")
       + (opt toBooint "hdmi_ignore_cec")
+      + (opt toBooint "hdmi_ignore_cec_init")
       + (opt toBooint "disable_overscan")
       + (opt toBooint "disable_fw_kms_setup")
       + (lib.optionalString (cfg.enable_watchdog != null && cfg.enable_watchdog) ''
@@ -187,6 +188,10 @@ in
         default = null;
       };
       hdmi_ignore_cec = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = true;
+      };
+      hdmi_ignore_cec_init = lib.mkOption {
         type = lib.types.nullOr lib.types.bool;
         default = true;
       };
