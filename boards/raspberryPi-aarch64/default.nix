@@ -64,13 +64,13 @@ let
         upstream_kernel=${toBooint cfg.upstream_kernel}
         kernel=${final_binary}
       ''
-      + (opt toBooint "uart_2ndstage")
-      + (opt toBooint "hdmi_force_hotplug")
       + (opt toBooint "arm_boost")
       + (opt toIntint "initial_boost")
-      + (opt toStr "hdmi_drive")
-      + (opt toBooint "hdmi_safe")
       + (opt toBooint "force_turbo")
+      + (opt toBooint "uart_2ndstage")
+      + (opt toBooint "hdmi_safe")
+      + (opt toBooint "hdmi_force_hotplug")
+      + (opt toStr "hdmi_drive")
       + (opt toBooint "hdmi_ignore_cec")
       + (opt toBooint "hdmi_ignore_cec_init")
       + (opt toBooint "disable_overscan")
