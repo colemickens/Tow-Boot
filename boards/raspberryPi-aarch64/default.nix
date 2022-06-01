@@ -28,8 +28,6 @@ let
       # (even with kernel generation DTB off)
       configTxtPi3 = (''
         # gpu_mem=512                # Tow-Boot.config.rpi.enable_vc4_kms # TODO
-        # core_freq=300
-        # core_freq_min=300
       '');
       configTxtPi02 = (''
         # gpu_mem=128                # Tow-Boot.config.rpi.enable_vc4_kms # TODO
@@ -44,13 +42,14 @@ let
       '')
       + (lib.optionalString ((cfg.hdmi_enable_4kp60 != null) && cfg.hdmi_enable_4kp60) ''
           hdmi_enable_4kp60=1
-          # core_freq=600
-          # core_freq_min=600
+          # core_freq=600 # untested
+          # core_freq_min=600 # untested
       '')
       ;
     in
     pkgs.writeText "config.txt"
       (''
+        # TowBoot summary:
         # firmwarePackage: ${cfg.firmwarePackage.name}
         # foundationKernel: ${cfg.foundationKernel.name}
         # mainlineKernel: ${cfg.mainlineKernel.name}
@@ -91,7 +90,7 @@ let
         ${configTxtPi02}
       '');
 
-  # BOOT_ORDER: (pi reads the hex value RTL (LSB=>MSB))
+  # BOOT_ORDER: (pi reads the hex value RTL (LSB->MSB))
   # 0x0 = SD-CARD-DETECT
   # 0x1 = SD-CARD
   # 0x2 = NETWORK
