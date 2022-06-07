@@ -286,6 +286,7 @@ in
           # https://patchwork.ozlabs.org/project/uboot/list/?series=273129&archive=both&state=*
           # ./1-2-rpi-Update-the-Raspberry-Pi-doucmentation-URL.patch
         ];
+        outputs.firmwareContents = firmwareContents;
         outputs.scripts = {
           # TODO: yeesh. commit to findmnt or require /boot/firmware to
           # be the mntpt? maybe we confirm the findmnt is right

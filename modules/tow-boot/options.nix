@@ -48,6 +48,13 @@ in
           These components are used to build the disk images and other final build artifacts.
         '';
       };
+      
+      outputs.firmwareContents = mkOption {
+        type = types.package;
+        description = ''
+          TODO: full firmware partition contents
+        '';
+      };
 
       outputs.scripts = mkOption {
         type = types.attrsOf types.package;
