@@ -160,7 +160,7 @@ let
 in
 {
   options = {
-    Tow-Boot.rpieeprom = {
+    Tow-Boot = {
       
       eeprom = lib.mkOption {
         type = lib.types.submodule (
