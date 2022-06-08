@@ -160,6 +160,23 @@ let
 in
 {
   options = {
+    Tow-Boot.rpieeprom = {
+      
+      eeprom = lib.mkOption {
+        type = lib.types.submodule (
+          { config, options, name, ...}:
+          {
+            enable = lib.mkEnableOption "enable rpi-eeprom support [rpi4 only]";
+            package = lib.mkOption {
+              type = lib.types.package;
+              default = rpipkgs.raspberrypi-eeprom;
+            };
+            
+          }
+        )
+      };
+    };
+
     Tow-Boot.rpi = {
       # configtxt options
       upstream_kernel = lib.mkOption {
@@ -235,10 +252,6 @@ in
       firmwarePackage = lib.mkOption {
         type = lib.types.package;
         default = rpipkgs.raspberrypifw;
-      };
-      eepromPackage = lib.mkOption {
-        type = lib.types.package;
-        default = rpipkgs.raspberrypi-eeprom;
       };
       armstubsPackage = lib.mkOption {
         type = lib.types.package;
