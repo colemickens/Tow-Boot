@@ -24,11 +24,11 @@
     },
     "rpipkgs": {
       "locked": {
-        "lastModified": 1654722887,
-        "narHash": "sha256-2ALf1zHKFT2KT2QZQ9fLDSIIY9IyONOfFnOiKl/IVDU=",
+        "lastModified": 1654744786,
+        "narHash": "sha256-k4TJNMDhvROIcOMTahuBaZYZunbb+0Ptfiao8TjHBKs=",
         "owner": "colemickens",
         "repo": "nixpkgs",
-        "rev": "67c448d04ef03416834ccad1ae9bf8428ac57d00",
+        "rev": "f7292a73a7961d74f6fb2cba3e609fb0e751dfef",
         "type": "github"
       },
       "original": {
