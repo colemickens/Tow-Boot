@@ -46,13 +46,13 @@ in
 
     system.activationScripts.towbootUpdate = lib.mkIf cfg.autoUpdate {
       text = ''
-        "${tbOutputs.scripts.updateFirmware}/bin/tow-boot-update"
+        "${tbOutputs.extra.scripts}/bin/tow-boot-update"
       '';
       deps = [ ];
     };
 
     environment.systemPackages = with pkgs; [] ++
-      (builtins.attrValues tbOutputs.scripts)
+      (builtins.attrValues tbOutputs.extra)
     ;
 
     # fileSystems = {

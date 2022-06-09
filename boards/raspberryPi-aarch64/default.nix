@@ -316,65 +316,70 @@ in
         ];
         outputs.extra.firmwareContents = firmwareContents;
         outputs.extra.eepromFiles = eepromFiles;
-        outputs.scripts = {
-          # TODO: yeesh. commit to findmnt or require /boot/firmware to
-          # be the mntpt? maybe we confirm the findmnt is right
-          # then we remount it. if its in wrong place or wrong part, the user
-          # must intervene.
-          updateFirmware = pkgs.writeShellScriptBin "tow-boot-update" ''
-            set -x
-            set -euo pipefail
+        outputs.extra.scripts =
+          let
+            updateFirmwareContents = pkgs.writeShellScriptBin "tow-boot-update" ''
+              set -x
+              set -euo pipefail
 
-            firmpart="/dev/disk/by-partuuid/${mbr_disk_id}-01"
-            target="/boot/firmware"
-            [[ -d "$target" ]] || mkdir "$target" # no -p because we assume separate boot
+              firmpart="/dev/disk/by-partuuid/${mbr_disk_id}-01"
+              target="/boot/firmware"
+              [[ -d "$target" ]] || mkdir "$target" # no -p because we assume separate boot
               
-            if [[ "$target" !=  "$(findmnt "$firmpart" -no "target")" ]];
-            then
-              printf "tow-boot-update:: the expected /boot/firmware isn't mounted!\n" \
-                >/dev/stderr
-              exit 0
-            fi
+              if [[ "$target" !=  "$(findmnt "$firmpart" -no "target")" ]];
+              then
+                printf "tow-boot-update:: the expected /boot/firmware isn't mounted!\n" \
+                  >/dev/stderr
+                exit 0
+              fi
 
-            function cleanup() {
-              mount -o remount,ro "$firmpart"
-            }
+              function cleanup() {
+                mount -o remount,ro "$firmpart"
+              }
         
-            mount -o remount,rw "$firmpart"
-            trap cleanup EXIT
+              mount -o remount,rw "$firmpart"
+              trap cleanup EXIT
               
-            ${populateCommands}
+              ${populateCommands}
 
-            echo "all done"
-          '';
-          updateEeprom = pkgs.writeShellScriptBin "tow-boot-rpi-eeprom-update" ''
-            #
-            # UPDATE EEPROM
-            sudo ${cfg2.package}/bin/rpi-eeprom-update -r || true
-            sudo env BOOTFS=/boot/firmware \
-              ${cfg2.package}/bin/rpi-eeprom-update \
-                -d -f "${eepromFiles}/pieeprom.upd"
-          '';
-        };
+              echo "all done"
+            '';
+            updateEeprom = pkgs.writeShellScriptBin "tow-boot-rpi-eeprom-update" ''
+              #
+              # UPDATE EEPROM
+              sudo ${cfg2.package}/bin/rpi-eeprom-update -r || true
+              sudo env BOOTFS=/boot/firmware \
+                ${cfg2.package}/bin/rpi-eeprom-update \
+                  -d -f "${eepromFiles}/pieeprom.upd"
+            '';
+          in
+          pkgs.linkFarmFromDrvs "rpi-extras" [
+            updateFirmwareContents
+            updateEeprom
+            # TODO: yeesh. commit to findmnt or require /boot/firmware to
+            # be the mntpt? maybe we confirm the findmnt is right
+            # then we remount it. if its in wrong place or wrong part, the user
+            # must intervene.
 
-        #TODO: refactor this to output all firmware to FIRMWARE_CONTENTS/
-        # TODO: refactor the populate commands to copy from ${outputs.firmware}/FIRMARE_CONTENTS
-        # outputs.firmware = lib.mkIf (config.device.identifier == "raspberryPi-aarch64") (
-        #   pkgs.callPackage (
-        #     { runCommandNoCC }:
+            #TODO: refactor this to output all firmware to FIRMWARE_CONTENTS/
+            # TODO: refactor the populate commands to copy from ${outputs.firmware}/FIRMARE_CONTENTS
+            # outputs.firmware = lib.mkIf (config.device.identifier == "raspberryPi-aarch64") (
+            #   pkgs.callPackage (
+            #     { runCommandNoCC }:
 
-        #     runCommandNoCC "tow-boot-${config.device.identifier}" {} ''
-        #       (PS4=" $ "; set -x
-        #       mkdir -p $out/{binaries,config}
-        #       cp -v ${config.Tow-Boot.outputs.firmware}/binaries/Tow-Boot.noenv.bin $out/binaries/Tow-Boot.noenv.bin
-        #       cp -v ${config.Tow-Boot.outputs.firmware}/config/noenv.config $out/config/noenv.config
-        #       )
-        #     ''
-        #   ) { }
-        # );
-        # not sure what this is even for? What is using the "$out/binaries/NAME" as an API? Why is this configurable?
-        # esp since this already relies on the internals of the builder for 'u-boot.bin' file ?
-        # if anything, I feel like the builder should just take a "destination" and it knows how to place it
+            #     runCommandNoCC "tow-boot-${config.device.identifier}" {} ''
+            #       (PS4=" $ "; set -x
+            #       mkdir -p $out/{binaries,config}
+            #       cp -v ${config.Tow-Boot.outputs.firmware}/binaries/Tow-Boot.noenv.bin $out/binaries/Tow-Boot.noenv.bin
+            #       cp -v ${config.Tow-Boot.outputs.firmware}/config/noenv.config $out/config/noenv.config
+            #       )
+            #     ''
+            #   ) { }
+            # );
+            # not sure what this is even for? What is using the "$out/binaries/NAME" as an API? Why is this configurable?
+            # esp since this already relies on the internals of the builder for 'u-boot.bin' file ?
+            # if anything, I feel like the builder should just take a "destination" and it knows how to place it
+          ];
         builder.installPhase = ''
           cp -v u-boot.bin $out/binaries/${final_binary}
         '';
