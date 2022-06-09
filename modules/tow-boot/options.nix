@@ -49,10 +49,11 @@ in
         '';
       };
       
-      outputs.firmwareContents = mkOption {
-        type = types.package;
+      outputs.extra = mkOption {
+        type = types.attrsOf types.package;
         description = ''
-          TODO: full firmware partition contents
+          extra outputs for a given board?
+          maybe this can be done inside the boards options?
         '';
       };
 

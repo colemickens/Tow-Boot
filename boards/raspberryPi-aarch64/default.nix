@@ -26,24 +26,30 @@ let
       # TODO: pretty sure pi3- prefix isn't needed
       # these aren't doing shit on either pi4 or pi3b with mainline
       # (even with kernel generation DTB off)
-      configTxtPi3 = (''
-        # gpu_mem=512                # Tow-Boot.config.rpi.enable_vc4_kms # TODO
-      '');
-      configTxtPi02 = (''
-        # gpu_mem=128                # Tow-Boot.config.rpi.enable_vc4_kms # TODO
-      '');
-      configTxtPi4 = (''
-        enable_gic=1
-        armstub=armstub8-gic.bin
-      '') + (lib.optionalString (cfg.enable_vc4_kms && !cfg.upstream_kernel) ''
+      configTxtPi3 = (
+        ''
+          # gpu_mem=512                # Tow-Boot.config.rpi.enable_vc4_kms # TODO
+        ''
+      );
+      configTxtPi02 = (
+        ''
+          # gpu_mem=128                # Tow-Boot.config.rpi.enable_vc4_kms # TODO
+        ''
+      );
+      configTxtPi4 = (
+        ''
+          enable_gic=1
+          armstub=armstub8-gic.bin
+        ''
+      ) + (lib.optionalString (cfg.enable_vc4_kms && !cfg.upstream_kernel) ''
         # gpu_mem=256                # Tow-Boot.config.rpi.enable_vc4_kms
       '') + (lib.optionalString (cfg.enable_vc4_kms && cfg.upstream_kernel) ''
         # gpu_mem=256                # Tow-Boot.config.rpi.enable_vc4_kms
       '')
       + (lib.optionalString ((cfg.hdmi_enable_4kp60 != null) && cfg.hdmi_enable_4kp60) ''
-          hdmi_enable_4kp60=1
-          # core_freq=600 # untested
-          # core_freq_min=600 # untested
+        hdmi_enable_4kp60=1
+        # core_freq=600 # untested
+        # core_freq_min=600 # untested
       '')
       ;
     in
@@ -53,7 +59,7 @@ let
         # firmwarePackage: ${cfg.firmwarePackage.name}
         # foundationKernel: ${cfg.foundationKernel.name}
         # mainlineKernel: ${cfg.mainlineKernel.name}
-        # eepromPackage: ${cfg.eepromPackage.name}
+        # eeprom.package: ${cfg.eeprom.package.name}
         # armstubsPackage: ${cfg.armstubsPackage.name}
       
         [all]
@@ -75,11 +81,11 @@ let
       + (opt toBooint "disable_overscan")
       + (opt toBooint "disable_fw_kms_setup")
       + (lib.optionalString (cfg.enable_watchdog != null && cfg.enable_watchdog) ''
-          dtparam=watchdog=on
-        '')
+        dtparam=watchdog=on
+      '')
       + (lib.optionalString (cfg.upstream_kernel != null && !cfg.upstream_kernel) ''
-          os_prefix=foundation/
-        '')
+        os_prefix=foundation/
+      '')
       + ''
 
         [pi4]
@@ -90,34 +96,26 @@ let
         ${configTxtPi02}
       '');
 
-  # BOOT_ORDER: (pi reads the hex value RTL (LSB->MSB))
-  # 0x0 = SD-CARD-DETECT
-  # 0x1 = SD-CARD
-  # 0x2 = NETWORK
-  # 0x3 = RPIBOOT
-  # 0x4 = USB-MSD
-  # 0x_ = BCM-USB-MSD
-  # 0x_ = NVME
-  # 0x_ = STOP
-  # 0xf = RESTART
   bootconfTxt = pkgs.writeText "bootconf.txt" ''
-    [all]
-    BOOT_UART=1
-    ENABLE_SELF_UPDATE=1
-    # BOOT_ORDER=0xf2146 # NVME => USB-MSB => SD-CARD => NETWORK => RESTART
-    BOOT_ORDER=0xf241 # SD-CARD => USB-MSD => NETWORK => RESTART
+    ${cfg.eeprom.extraConfig}
   '';
-  eepromBin = pkgs.runCommandNoCC "pieeprom.bin" { } ''
+  eepromFiles = pkgs.runCommandNoCC "rpi4-eeprom" { } ''
     set -x
     set -euo pipefail
+    
+    mkdir $out
 
-    dir="${cfg.eepromPackage}/share/rpi-eeprom/stable"
+    dir="${cfg.eeprom.package}/share/rpi-eeprom/stable"
     orig="$(ls $dir | grep pieeprom | sort | tail -1)"
 
-    ${cfg.eepromPackage}/bin/rpi-eeprom-config \
+    ${cfg.eeprom.package}/bin/rpi-eeprom-config \
       --config "${bootconfTxt}" \
-      --out $out \
+      --out $out/pieeprom.upd \
         "$(readlink -f $dir/$orig)"
+              
+    ${cfg.eeprom.package}/bin/rpi-eeprom-digest \
+      -i $out/pieeprom.upd \
+      -o $out/pieeprom.sig
   '';
 
   firmwareContents = pkgs.runCommandNoCC "firmware-contents" { } ''
@@ -160,113 +158,138 @@ let
 in
 {
   options = {
-    Tow-Boot = {
-      
-      eeprom = lib.mkOption {
-        type = lib.types.submodule (
-          { config, options, name, ...}:
-          {
-            enable = lib.mkEnableOption "enable rpi-eeprom support [rpi4 only]";
-            package = lib.mkOption {
-              type = lib.types.package;
-              default = rpipkgs.raspberrypi-eeprom;
-            };
-            
-          }
-        )
-      };
-    };
+    Tow-Boot.rpi = lib.mkOption {
+      type = lib.types.submodule {
+        options = {
+          eeprom = lib.mkOption {
+            type = lib.types.submodule (
+              # { config, options, name, ... }:
+              {
+                enable = lib.mkEnableOption "enable rpi-eeprom support [rpi4 only]";
 
-    Tow-Boot.rpi = {
-      # configtxt options
-      upstream_kernel = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = true;
-      };
-      uart_2ndstage = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = true;
-      };
-      hdmi_force_hotplug = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = null;
-      };
-      hdmi_drive = lib.mkOption {
-        type = lib.types.nullOr lib.types.int;
-        default = null;
-      };
-      hdmi_safe = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = null;
-      };
-      force_turbo = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = null;
-      };
-      hdmi_ignore_cec = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = true;
-      };
-      hdmi_ignore_cec_init = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = true;
-      };
-      disable_overscan = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = null;
-      };
-      disable_fw_kms_setup = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = null;
-      };
-      arm_boost = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = null;
-      };
-      initial_boost = lib.mkOption {
-        type = lib.types.nullOr lib.types.int;
-        default = null;
-      };
-      hdmi_enable_4kp60 = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = null;
-      };
-      # custom
-      enable_vc4_kms = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = true;
-      };
-      enable_watchdog = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = null;
-      };
-      disable_bluetooth = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = true;
-      };
-      disable_wifi = lib.mkOption {
-        type = lib.types.nullOr lib.types.bool;
-        default = false;
-      };
-      # package overrides
-      firmwarePackage = lib.mkOption {
-        type = lib.types.package;
-        default = rpipkgs.raspberrypifw;
-      };
-      armstubsPackage = lib.mkOption {
-        type = lib.types.package;
-        default = rpipkgs.raspberrypi-armstubs;
-      };
-      mainlineKernel = lib.mkOption {
-        type = lib.types.package;
-        default = rpipkgs.linuxPackages_latest.kernel;
-      };
-      foundationKernel = lib.mkOption {
-        type = lib.types.package;
-        default = rpipkgs.linuxPackages_rpi4.kernel;
+                package = lib.mkOption {
+                  type = lib.types.package;
+                  default = rpipkgs.raspberrypi-eeprom;
+                };
+
+                extraConfig = lib.mkOption {
+                  type = lib.types.string;
+                  description = ''
+                    this is the contents of bootconf.txt:
+                
+                    # BOOT_ORDER: (pi reads the hex value RTL (LSB->MSB))
+                    # 0x0 = SD-CARD-DETECT
+                    # 0x1 = SD-CARD
+                    # 0x2 = NETWORK
+                    # 0x3 = RPIBOOT
+                    # 0x4 = USB-MSD
+                    # 0x_ = BCM-USB-MSD
+                    # 0x_ = NVME
+                    # 0x_ = STOP
+                    # 0xf = RESTART
+                  '';
+                  default = ''
+                    [all]
+                    BOOT_UART=1
+                    ENABLE_SELF_UPDATE=1
+                    BOOT_ORDER=0xf241
+                  '';
+                };
+              }
+            );
+          };
+          # configtxt options
+          upstream_kernel = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = true;
+          };
+          uart_2ndstage = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = true;
+          };
+          hdmi_force_hotplug = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = null;
+          };
+          hdmi_drive = lib.mkOption {
+            type = lib.types.nullOr lib.types.int;
+            default = null;
+          };
+          hdmi_safe = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = null;
+          };
+          force_turbo = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = null;
+          };
+          hdmi_ignore_cec = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = true;
+          };
+          hdmi_ignore_cec_init = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = true;
+          };
+          disable_overscan = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = null;
+          };
+          disable_fw_kms_setup = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = null;
+          };
+          arm_boost = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = null;
+          };
+          initial_boost = lib.mkOption {
+            type = lib.types.nullOr lib.types.int;
+            default = null;
+          };
+          hdmi_enable_4kp60 = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = null;
+          };
+          # custom
+          enable_vc4_kms = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = true;
+          };
+          enable_watchdog = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = null;
+          };
+          disable_bluetooth = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = true;
+          };
+          disable_wifi = lib.mkOption {
+            type = lib.types.nullOr lib.types.bool;
+            default = false;
+          };
+          # package overrides
+          firmwarePackage = lib.mkOption {
+            type = lib.types.package;
+            default = rpipkgs.raspberrypifw;
+          };
+          armstubsPackage = lib.mkOption {
+            type = lib.types.package;
+            default = rpipkgs.raspberrypi-armstubs;
+          };
+          mainlineKernel = lib.mkOption {
+            type = lib.types.package;
+            default = rpipkgs.linuxPackages_latest.kernel;
+          };
+          foundationKernel = lib.mkOption {
+            type = lib.types.package;
+            default = rpipkgs.linuxPackages_rpi4.kernel;
+          };
+        };
       };
     };
   };
+
 
   config = {
     # TODO: and like why is this not passed through?
@@ -299,7 +322,8 @@ in
           # https://patchwork.ozlabs.org/project/uboot/list/?series=273129&archive=both&state=*
           # ./1-2-rpi-Update-the-Raspberry-Pi-doucmentation-URL.patch
         ];
-        outputs.firmwareContents = firmwareContents;
+        outputs.extra.firmwareContents = firmwareContents;
+        outputs.extra.eepromFiles = eepromFiles;
         outputs.scripts = {
           # TODO: yeesh. commit to findmnt or require /boot/firmware to
           # be the mntpt? maybe we confirm the findmnt is right
@@ -334,10 +358,10 @@ in
           updateEeprom = pkgs.writeShellScriptBin "tow-boot-rpi-eeprom-update" ''
             #
             # UPDATE EEPROM
-            sudo ${cfg.eepromPackage}/bin/rpi-eeprom-update -r || true
+            sudo ${cfg.eeprom.package}/bin/rpi-eeprom-update -r || true
             sudo env BOOTFS=/boot/firmware \
-              ${cfg.eepromPackage}/bin/rpi-eeprom-update \
-                -d -f "${eepromBin}"
+              ${cfg.eeprom.package}/bin/rpi-eeprom-update \
+                -d -f "${eepromFiles}/pieeprom.upd"
           '';
         };
 
