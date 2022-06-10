@@ -88,6 +88,7 @@ let
       + (lib.optionalString (cfg.upstream_kernel != null && !cfg.upstream_kernel) ''
         os_prefix=foundation/
       '')
+      + (opt toBooint "program_usb_boot_mode")
       + ''
 
         [pi4]
@@ -263,6 +264,10 @@ in
         type = lib.types.nullOr lib.types.bool;
         default = false;
       };
+      program_usb_boot_mode = lib.mkOption {
+        type = lib.types.nullOr lib.types.bool;
+        default = false;
+      };
       # package overrides
       firmwarePackage = lib.mkOption {
         type = lib.types.package;
@@ -318,7 +323,7 @@ in
         outputs.extra.eepromFiles = eepromFiles;
         outputs.extra.scripts =
           let
-            updateFirmwareContents = pkgs.writeShellScriptBin "tow-boot-update" ''
+            updateFirmwareContents = pkgs.writeShellScriptBin "tow-boot-rpi-update-firmware" ''
               set -x
               set -euo pipefail
 
@@ -344,7 +349,7 @@ in
 
               echo "all done"
             '';
-            updateEeprom = pkgs.writeShellScriptBin "tow-boot-rpi-eeprom-update" ''
+            updateEeprom = pkgs.writeShellScriptBin "tow-boot-rpi-update-eeprom" ''
               #
               # UPDATE EEPROM
               sudo ${cfg2.package}/bin/rpi-eeprom-update -r || true

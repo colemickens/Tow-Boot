@@ -46,7 +46,7 @@ in
 
     system.activationScripts.towbootUpdate = lib.mkIf cfg.autoUpdate {
       text = ''
-        "${tbOutputs.extra.scripts}/bin/tow-boot-update"
+        "${tbOutputs.extra.scripts}/tow-boot-rpi-update-firmware"
       '';
       deps = [ ];
     };
