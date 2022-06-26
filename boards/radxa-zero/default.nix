@@ -43,24 +43,24 @@ in
 {
   device = {
     manufacturer = "Radxa";
-    name = "Zero 2";
-    identifier = "radxa-zero2";
-    productPageURL = "https://wiki.radxa.com/Zero2";
+    name = "Zero";
+    identifier = "radxa-zero";
+    productPageURL = "https://wiki.radxa.com/Zero";
   };
 
   hardware = {
-    soc = "amlogic-a311d";
+    soc = "amlogic-s905y2";
     mmcBootIndex = "1";
   };
 
   Tow-Boot = {
-    defconfig = "radxa-zero2_defconfig";
+    defconfig = "radxa-zero_defconfig";
     patches = [
-      ./0001-radxa-zero2-board-enablement.patch
+      # ./0001-radxa-zero2-board-enablement.patch
       ./0001-arch-arm-dts-Sync-amlogic-meson-DT-with-mainline.patch
     ];
-    builder.additionalArguments = {
-      FIPDIR = "${radxa-fip}/radxa-zero2";
-    };
+    # builder.additionalArguments = {
+    #   FIPDIR = "${radxa-fip}/radxa-zero2";
+    # };
   };
 }
