@@ -8,7 +8,7 @@
 
 let
   cfg = config.tow-boot;
-  csys = if cfg.sys != null then cfs.sys else pkgs.system;
+  csys = if cfg.sys != null then cfg.sys else pkgs.system;
   towbootBuild =
     let
       devBuilder = inputs.self.devicesWith.${csys}.${cfg.device};
