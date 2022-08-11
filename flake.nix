@@ -3,7 +3,6 @@
 
   inputs = {
     nixpkgs = { url = "github:nixos/nixpkgs/nixos-unstable"; };
-    rpipkgs = { url = "github:colemickens/nixpkgs/rpipkgs"; };
   };
 
   outputs = inputs:

@@ -8,9 +8,10 @@
 
 let
   cfg = config.tow-boot;
+  csys = if cfg.sys != null then cfs.sys else pkgs.system;
   towbootBuild =
     let
-      devBuilder = inputs.self.devicesWith.${pkgs.system}.${cfg.device};
+      devBuilder = inputs.self.devicesWith.${csys}.${cfg.device};
       userConfig = {
         configuration = {
           config = {
@@ -29,6 +30,10 @@ in
       autoUpdate = lib.mkOption {
         type = lib.types.bool;
         default = false;
+      };
+      sys = lib.mkOption {
+        type = lib.types.nullOr lib.types.string;
+        default = null;
       };
       device = lib.mkOption {
         type = lib.types.str;
