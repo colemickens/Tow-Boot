@@ -16,7 +16,7 @@ stdenv.mkDerivation rec {
     sha256 = "1szsksxgpri9jvj092hkv1z491bnbn50mb6l7q4nzlls2zrl6mfi";
   };
 
-  patches = [ ./0001-remove-specs.patch ];
+  # patches = [ ./0001-remove-specs.patch ];
   depsBuildBuild = [ pkgsCross.riscv64-embedded.stdenv.cc ];
   buildInputs = [ pkgs.xxd ];
   makeFlags = [ "CROSSCOMPILE=${pkgsCross.riscv64-embedded.stdenv.cc.targetPrefix}" ];
