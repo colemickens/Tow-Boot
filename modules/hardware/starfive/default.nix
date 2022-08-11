@@ -34,11 +34,17 @@ in
       Tow-Boot = {
         defconfig = "starfive_jh7100_visionfive_smode_defconfig";
 
+        # src = pkgs.fetchFromGitHub {
+        #   owner = "NickCao";
+        #   repo = "u-boot-starfive";
+        #   rev = "ac75aa54020412a83b61dad46c5ea15e7f9f525c";
+        #   sha256 = "1idh5k1479znp24rrfa0ikgk6iv5h80zscqhi6yv5ah4czia3ip3";
+        # };
         src = pkgs.fetchFromGitHub {
-          owner = "NickCao";
-          repo = "u-boot-starfive";
-          rev = "ac75aa54020412a83b61dad46c5ea15e7f9f525c";
-          sha256 = "1idh5k1479znp24rrfa0ikgk6iv5h80zscqhi6yv5ah4czia3ip3";
+          owner = "colemickens";
+          repo = "u-boot";
+          rev = "11cff918727c556607a5eb5b8023b973bb4e7ad5";
+          sha256 = "1ixxxxxx79znp24rrfa0ikgk6iv5h80zscqhi6yv5ah4czia3ip3";
         };
 
         builder.additionalArguments = {
