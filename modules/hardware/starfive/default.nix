@@ -12,15 +12,19 @@ let
   starFiveSOCs = [ "starfive-jh7100" ];
   anyStarFive = lib.any (soc: config.hardware.socs.${soc}.enable) starFiveSOCs;
 
-  selfUboot = ...;
-  opensbi_sf = pkgs.opensbi.override {
-    withPayload = "${selfUboot}/u-boot.bin";
-    withFDT = "${selfUboot}/u-boot.dtb";
-  };
+  _opensbi =
+    let
+      ubootBuild = config.Tow-Boot.outputs.firmware;
+    in
+    # pkgs.buildPackages.Tow-Boot.jh7100-opensbi.override {
+    pkgs.buildPackages.Tow-Boot.systems.riscv64.jh7100-opensbi.override {
+      withPayload = "${ubootBuild}/u-boot.bin";
+      withFDT = "${ubootBuild}/u-boot.dtb";
+    };
 
-  # still need to copy from c-c-risv pkgs
-  fwvf = callPackages ../where_ever/firmware-visionfive {
-    opensbi = opensbi_sf;
+  # todo: should it even be listed in the overlay? I dont like using overlay for more tahn is needed
+  fw_visionfive = pkgs.callPackage ../../../support/overlay/starfive-firmware/jh7100/firmware-visionfive/default.nix {
+    opensbi = _opensbi;
   };
 in
 {
@@ -44,7 +48,7 @@ in
 
       Tow-Boot = {
         defconfig = "starfive_jh7100_visionfive_smode_defconfig";
-        uBootVersion = "2022.07";
+        # uBootVersion = "2022.07";
         useDefaultPatches = false;
         withLogo = false;
 
@@ -64,29 +68,28 @@ in
         # I think for the most part we just want to leave
         # the tow/uboot build alone, most of what we need to do is build
         # custom opensbi and mush together after ward
-        
+
         # consider:
         # - uboot: "upstream"/my-fork/nickcao's, fix up the boot var as per samueldr's comments
         # - 
 
-        # builder.additionalArguments = {
-        #   secondBoot = "${pkgs.buildPackages.Tow-Boot.jh7100-secondBoot}/${pkgs.buildPackages.Tow-Boot.jh7100-secondBoot.name}.bin";
-        #   ddrinit = "${pkgs.buildPackages.Tow-Boot.jh7100-ddrinit}/${pkgs.buildPackages.Tow-Boot.jh7100-ddrinit.name}.bin";
-        # };
+        builder = {
+          additionalArguments = {
+            # secondBoot = "${pkgs.buildPackages.Tow-Boot.jh7100-secondBoot}/${pkgs.buildPackages.Tow-Boot.jh7100-secondBoot.name}.bin";
+            # ddrinit = "${pkgs.buildPackages.Tow-Boot.jh7100-ddrinit}/${pkgs.buildPackages.Tow-Boot.jh7100-ddrinit.name}.bin";
+          };
+          # nativeBuildInputs = [];
+          installPhase = ''
+            cp -v u-boot.bin $out/u-boot.bin
+            cp -v u-boot.dtb $out/u-boot.dtb
+          '';
+        };
 
-        # builder = {
-        #   buildPhase = ''
-
-        #   '';
-        #   installPhase = ''
-        #     ls -al
-        #   '';
-        # };
         outputs = {
-          extra.scripts = {
-            flashBootloader =
+          extra = {
+            scripts =
               let
-                expectScript = pkgs.writeScript "expect-visionfive.sh" ''
+                flashBootloaderExpect = pkgs.writeScript "visionfive-flashbootloader-expect.sh" ''
                   #!${pkgs.expect}/bin/expect -f
                   set timeout -1
                   spawn ${pkgs.picocom}/bin/picocom [lindex $argv 0] -b 115200 -s "${pkgs.lrzsz}/bin/sz -X"
@@ -102,20 +105,27 @@ in
                   expect "CC"
                   send "\x01\x13"
                   expect "*** file:"
-                  send "${fwvf}/opensbi_u-boot_visionfive.bin"
+                  send "${fw_visionfive}/opensbi_u-boot_visionfive.bin"
                   send "\r"
                   expect "Transfer complete"
-                ''; in
-              pkgs.writeShellScript "flash-visionfive.sh" ''
-                if $(groups | grep --quiet --word-regexp "dialout"); then
-                  echo "User is in dialout group, flashing to board without sudo"
-                  ${expectScript} $1
-                else
-                  echo "User is not in dialout group, flashing to board with sudo"
-                  sudo ${expectScript} $1
-                fi
-                sudo picocom -b 115200 $1
-              '';
+                '';
+                flashBootloader = pkgs.writeScript "visionfive-flashbootloader.sh" ''
+                  if $(groups | grep --quiet --word-regexp "dialout"); then
+                    echo "User is in dialout group, flashing to board without sudo"
+                    ${flashBootloaderExpect} $1
+                  else
+                    echo "User is not in dialout group, flashing to board with sudo"
+                    sudo ${flashBootloaderExpect} $1
+                  fi
+                  sudo picocom -b 115200 $1
+                '';
+              in
+              pkgs.buildEnv {
+                name = "starfive-extras";
+                paths = [
+                  flashBootloader
+                ];
+              };
           };
         };
       };

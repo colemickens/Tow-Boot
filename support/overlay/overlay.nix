@@ -85,6 +85,8 @@ in
     jh7100-ddrinit = callPackage ./starfive-firmware/jh7100/ddrinit { };
 
     jh7100-opensbi = callPackage ./starfive-firmware/jh7100/opensbi { };
+    
+    jh7100-visionfive-firmware = callPackage ./starfive-firmware/jh7100/visionfive-firmware { };
 
     mkScript = file: final.runCommandNoCC "out.scr" {
       nativeBuildInputs = [
