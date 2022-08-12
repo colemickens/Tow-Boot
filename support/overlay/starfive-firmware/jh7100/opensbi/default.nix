@@ -1,5 +1,5 @@
 { lib, stdenv, fetchFromGitHub
-, withPlatform ? 
+, withPlatform ? "generic"
 , withPayload ? null
 , withFDT ? null
 }:
@@ -20,9 +20,9 @@ stdenv.mkDerivation rec {
   ];
 
   makeFlags = [
-    "PLATFORM=generic"
-    "FW_PAYLOAD_PATH=u-boot.bin"
-    "FW_FDT_PATH=u-boot.dtb"
+    "PLATFORM=${withPlatform}"
+    "FW_PAYLOAD_PATH=${withPayload}"
+    "FW_FDT_PATH=${withFDT}"
   ];
 
   dontStrip = true;
