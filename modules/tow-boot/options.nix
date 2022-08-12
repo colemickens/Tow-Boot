@@ -48,6 +48,15 @@ in
           These components are used to build the disk images and other final build artifacts.
         '';
       };
+      
+      outputs.extra = mkOption {
+        type = types.attrsOf types.package;
+        default = {};
+        description = ''
+          extra outputs for a given board?
+          maybe this can be done inside the boards options?
+        '';
+      };
 
       releaseNumber = mkOption {
         type = types.str;

@@ -16,12 +16,13 @@ stdenv.mkDerivation rec {
     sha256 = "1q1p94l6sh7n0m60sxk6lv9yxif7d2skdzx9zrpmm26c62x5cw4k";
   };
 
-  patches = [ ./0001-remove-specs.patch ];
+  # patches = [ ./0001-remove-specs.patch ];
   depsBuildBuild = [ pkgsCross.riscv64-embedded.stdenv.cc ];
   buildInputs = [ pkgs.xxd ];
   makeFlags = [ "CROSSCOMPILE=${pkgsCross.riscv64-embedded.stdenv.cc.targetPrefix}" ];
 
   postPatch = ''
+    sed -i 's|LDFLAGS = -march=$(RISCV_ARCH) -mabi=$(RISCV_ABI)-T $(LINKER_SCRIPT) -nostartfiles --specs=nano.specs -Wl,-Map,$(MAP_FILE)|LDFLAGS = -march=$(RISCV_ARCH) -mabi=$(RISCV_ABI)-T $(LINKER_SCRIPT) -nostartfiles -Wl,-Map,$(MAP_FILE)|g' build/Makefile
     patchShebangs build/fsz.sh
   '';
 
