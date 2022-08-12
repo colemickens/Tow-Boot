@@ -22,6 +22,7 @@ stdenv.mkDerivation rec {
   makeFlags = [ "CROSSCOMPILE=${pkgsCross.riscv64-embedded.stdenv.cc.targetPrefix}" ];
 
   postPatch = ''
+    sed -i 's|LDFLAGS = -march=$(RISCV_ARCH) -mabi=$(RISCV_ABI)-T $(LINKER_SCRIPT) -nostartfiles --specs=nano.specs -Wl,-Map,$(MAP_FILE)|LDFLAGS = -march=$(RISCV_ARCH) -mabi=$(RISCV_ABI)-T $(LINKER_SCRIPT) -nostartfiles -Wl,-Map,$(MAP_FILE)|g' build/Makefile
     patchShebangs build/fsz.sh
   '';
 
