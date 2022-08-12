@@ -61,8 +61,8 @@ in
         src = pkgs.fetchFromGitHub {
           owner = "colemickens";
           repo = "u-boot";
-          rev = "cdf764eaf6f5d3a3d5ea05b0f2f6d535d4ec1d47";
-          sha256 = "sha256-C4NUnbPFwDwRkO9vCmbC0oi/Je3SdS27qNDm7SXoC2I=";
+          rev = "06020431f2b44802dc5217a2b78f52c5a17c44bd";
+          sha256 = "sha256-1SUX71gPjypkQ0+riwr+FvBNQvWcGGWU0aCYfAlMBOc=";
         };
 
         # I think for the most part we just want to leave
