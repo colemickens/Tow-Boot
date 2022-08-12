@@ -47,8 +47,11 @@ in
       system.system = "riscv64-linux";
 
       Tow-Boot = {
+        config = [(helpers: with helpers; {
+          CMD_CLS = lib.mkForce no;
+        })];
         defconfig = "starfive_jh7100_visionfive_smode_defconfig";
-        # uBootVersion = "2022.07";
+        uBootVersion = "2022.07";
         useDefaultPatches = false;
         withLogo = false;
 
