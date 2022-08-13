@@ -1,4 +1,4 @@
-{inputs}:
+{devicesWith}:
 
 { config, pkgs, lib, ... }:
 
@@ -11,7 +11,7 @@ let
   csys = if cfg.sys != null then cfg.sys else pkgs.system;
   towbootBuild =
     let
-      devBuilder = inputs.self.devicesWith.${csys}.${cfg.device};
+      devBuilder = devicesWith.${csys}.${cfg.device};
       userConfig = {
         configuration = {
           config = {

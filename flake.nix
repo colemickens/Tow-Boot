@@ -33,6 +33,7 @@
         releaseTools.evalWith {
           inherit device;
           inherit system;
+          modules = [({ system.automaticCross = true; })];
           additionalConfiguration = configuration;
           specialArgs = { inherit inputs; };
         };
@@ -42,7 +43,7 @@
           (d: (userConfig: evalFor
             ({
               device = d;
-              system = system;
+              system = builtins.trace system system;
             } // userConfig))));
       _devices = forAllSystems
         (system: genAttrs allDevices
@@ -52,9 +53,9 @@
               system = system;
             })));
     in
-    {
+    rec {
       nixosModules = [
-        (import ./nixos/integration.nix {inherit inputs;})
+        (import ./nixos/integration.nix {inherit devicesWith;})
       ];
 
       # devices = _devices;
