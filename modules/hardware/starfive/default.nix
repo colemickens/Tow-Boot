@@ -48,10 +48,17 @@ in
 
       Tow-Boot = {
         config = [(helpers: with helpers; {
+          # todo: tow-boot feature for disabling this
           CMD_CLS = lib.mkForce no;
+          
+          # todo: not sure why needed
+          CMD_POWEROFF = lib.mkForce no;
+          
+          # per our patch in our branch of u-boot, to be upstream to towboot/uboot both
+          TFTP_FILE_NAME_MAX_LEN = freeform "256";
         })];
         defconfig = "starfive_jh7100_visionfive_smode_defconfig";
-        uBootVersion = "2022.07";
+        uBootVersion = "2022.04";
         useDefaultPatches = false;
         withLogo = false;
 
@@ -64,8 +71,8 @@ in
         src = pkgs.fetchFromGitHub {
           owner = "colemickens";
           repo = "u-boot";
-          rev = "06020431f2b44802dc5217a2b78f52c5a17c44bd";
-          sha256 = "sha256-1SUX71gPjypkQ0+riwr+FvBNQvWcGGWU0aCYfAlMBOc=";
+          rev = "68ce371fa5cc441370ef31155c6e16672b0abb55";
+          sha256 = "sha256-91+O1HSn/MyWu8qOIfUq+IF37Z5mi+0PLhj9wz0k74I=";
         };
 
         # I think for the most part we just want to leave
@@ -90,12 +97,17 @@ in
 
         outputs = {
           extra = {
-            scripts =
+            vffw = fw_visionfive;
+            flasher = pkgs_: 
+
+            # scripts =
               let
-                flashBootloaderExpect = pkgs.writeScript "visionfive-flashbootloader-expect.sh" ''
-                  #!${pkgs.expect}/bin/expect -f
+                # flashBootloaderExpect = pkgs.writeScript "visionfive-flashbootloader-expect.sh" ''
+                flashBootloaderExpect =
+               pkgs_.writeScript "visionfive-flashbootloader-expect.sh" ''
+                  #!${pkgs_.expect}/bin/expect -f
                   set timeout -1
-                  spawn ${pkgs.picocom}/bin/picocom [lindex $argv 0] -b 115200 -s "${pkgs.lrzsz}/bin/sz -X"
+                  spawn ${pkgs_.picocom}/bin/picocom [lindex $argv 0] -b 115200 -s "${pkgs_.lrzsz}/bin/sz -X"
                   expect "Terminal ready"
                   send_user "\n### Apply power to the VisionFive Board ###\n"
                   expect "bootloader"
@@ -112,23 +124,29 @@ in
                   send "\r"
                   expect "Transfer complete"
                 '';
-                flashBootloader = pkgs.writeScript "visionfive-flashbootloader.sh" ''
+                flashBootloader = pkgs_.writeScript "visionfive-flashbootloader.sh" ''
+                  ls -al "${fw_visionfive}/opensbi_u-boot_visionfive.bin"
                   if $(groups | grep --quiet --word-regexp "dialout"); then
                     echo "User is in dialout group, flashing to board without sudo"
                     ${flashBootloaderExpect} $1
+                    while true; do 
+                      picocom -b 115200 $1
+                      sleep 1
+                    done
                   else
                     echo "User is not in dialout group, flashing to board with sudo"
                     sudo ${flashBootloaderExpect} $1
                   fi
-                  sudo picocom -b 115200 $1
                 '';
               in
-              pkgs.buildEnv {
-                name = "starfive-extras";
-                paths = [
-                  flashBootloader
-                ];
-              };
+              flashBootloader
+              # pkgs_.buildEnv {
+              #   name = "starfive-extras";
+              #   paths = [
+              #     flashBootloader
+              #   ];
+              # };
+              ;
           };
         };
       };

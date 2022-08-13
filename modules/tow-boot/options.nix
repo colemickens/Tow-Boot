@@ -50,7 +50,7 @@ in
       };
       
       outputs.extra = mkOption {
-        type = types.attrsOf types.package;
+        type = types.attrs;
         default = {};
         description = ''
           extra outputs for a given board?
