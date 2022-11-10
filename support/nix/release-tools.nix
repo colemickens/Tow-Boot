@@ -1,17 +1,22 @@
-{ pkgs ? import ../../nixpkgs.nix {} }: 
+{
+  system ? builtins.currentSystem
+, inputs
+}: 
 
 let
   # Original `evalConfig`
-  evalConfig = import "${toString pkgs.path}/nixos/lib/eval-config.nix";
+  evalConfig = import "${inputs.nixpkgs}/nixos/lib/eval-config.nix";
   # Import modules from Nixpkgs
-  fromNixpkgs = map (module: "${toString pkgs.path}/nixos/modules/${module}");
+  fromNixpkgs = map (module: "${inputs.nixpkgs}/nixos/modules/${module}");
 in
 rec {
   # Evaluates Tow-Boot, and the device config with the given additional modules.
   evalWith =
-    { modules
+    { modules ? []
     , device
     , additionalConfiguration ? {}
+    , system ? system
+    , specialArgs ? {}
     , baseModules ? (
       [
         ../../modules
@@ -23,6 +28,8 @@ rec {
     )
   }: evalConfig {
     inherit baseModules;
+    inherit system;
+    inherit specialArgs;
     modules = []
       # `device` can be a couple of types.
       ++ (   if builtins.isAttrs device then [ device ]                    # An attrset is used directly
@@ -35,19 +42,6 @@ rec {
     ;
   };
 
-  evalFor = device: config: (
-    import ./eval-with-configuration.nix {
-      inherit
-        pkgs
-        device
-      ;
-      configuration = {
-        # Special configs for imperative use only here
-        system.automaticCross = true;
-      } // config;
-    }
-  );
-
   keepEval = (eval: eval.config.device.inRelease);
 
   allDevices =
@@ -56,7 +50,7 @@ rec {
     (builtins.attrNames (builtins.readDir ../../boards))
   ;
 
-  evals = builtins.map (device: evalFor device { }) allDevices;
+  evals = builtins.map (device: evalWith { inherit device; }) allDevices;
 
   releasedDevicesEvaluations = builtins.filter keepEval evals;
 }
