@@ -1,24 +1,31 @@
 { runCommandNoCC, fetchurl, xxd }:
 
+let
+  rev = "9840e87723eef7c41235b89af8c049c1bcd3d133";
+  bl31Ver = "v1.28";
+  ramVer = "v1.08";
+in
 {
-  BL31 = fetchurl {
-    url = "https://github.com/radxa/rkbin/blob/db0c185306b5251c43ac2181fcab8ba2868d64bb/bin/rk35/rk3588_bl31_v1.25.elf?raw=true";
-    sha256 = "sha256-UUkqY7+YAFxBwTCz3Ey09q+StT3B68Iqqv4aZXQhF5E=";
-  };
+  BL31 =
+    fetchurl {
+      url = "https://github.com/radxa/rkbin/raw/${rev}/bin/rk35/rk3588_bl31_${bl31Ver}.elf";
+      sha256 = "sha256-mCx3v6musfwuf+HKFpYfQrk5RGjx3TZ1LeRwONEZVYs=";
+    };
 
   # Originally 60e3 16__; 0x16e360, 1500000
   # Changed to 0x1c200, 115200, 00c2 01__
   # Finding the offset: `grep '60 \?e3 \?16'`
-  ram_init = 
-    runCommandNoCC "rk3588-patched-ram_init" {
-      nativeBuildInputs = [
-        xxd
-      ];
-      ram_init = fetchurl {
-        url = "https://github.com/radxa/rkbin/blob/db0c185306b5251c43ac2181fcab8ba2868d64bb/bin/rk35/rk3588_ddr_lp4_2112MHz_lp5_2736MHz_v1.07.bin?raw=true";
-        sha256 = "sha256-M6XVY1VcYXffXrS0bqWS1cTyQIqJs7Ctm/sQ5K21/18=";
-      };
-    } ''
+  ram_init =
+    runCommandNoCC "rk3588-patched-ram_init"
+      {
+        nativeBuildInputs = [
+          xxd
+        ];
+        ram_init = fetchurl {
+          url = "https://github.com/radxa/rkbin/raw/${rev}/bin/rk35/rk3588_ddr_lp4_2112MHz_lp5_2736MHz_${ramVer}.bin";
+          sha256 = "sha256-E4olArzqDOvlgYM3kAYLIdOaZ7YD2OdjPYUFvTmt6ns=";
+        };
+      } ''
       cat $ram_init > $out
 
       xxd -r - $out <<EOF
