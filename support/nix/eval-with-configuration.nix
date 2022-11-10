@@ -3,7 +3,8 @@
 # This is meant for use internally by this project.
 # The interface here should not be assumed to be *stable*.
 {
-  pkgs ? import ../../nixpkgs.nix { }
+  inputs
+, system
   # The identifier of the device this should be built for.
   # (This gets massaged later on)
 , device ? null
@@ -14,17 +15,19 @@
 , additionalHelpInstructions ? ""
 }:
 let
+  pkgs = import inputs.nixpkgs { inherit system; };
+
   inherit (pkgs.lib) filter optionalString showWarnings strings;
   inherit (strings) concatStringsSep stringAsChars;
 
-  inherit (import ./release-tools.nix { inherit pkgs; }) evalWith;
+  inherit (import ./release-tools.nix { inherit system inputs; }) evalWith;
 
   # The "default" eval.
   eval' = evalWith {
     inherit additionalConfiguration device;
     modules = [{
       imports = [
-        configuration
+        (builtins.trace configuration.config configuration)
         (
           { lib, ... }:
           {
