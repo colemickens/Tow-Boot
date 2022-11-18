@@ -1,0 +1,34 @@
+From 4be3d39a3fd3d196332d6b7a2d26f8e2b9e8bda9 Mon Sep 17 00:00:00 2001
+From: Cole Mickens <cole.mickens@gmail.com>
+Date: Thu, 7 Jul 2022 20:19:22 -0700
+Subject: [PATCH] radxa-zero: CONFIG_USB_HOST_ETHER
+
+---
+ configs/radxa-zero_defconfig | 7 +------
+ 1 file changed, 1 insertion(+), 6 deletions(-)
+
+diff --git a/configs/radxa-zero_defconfig b/configs/radxa-zero_defconfig
+index 5e845600b4..8834808efb 100644
+--- a/configs/radxa-zero_defconfig
++++ b/configs/radxa-zero_defconfig
+@@ -45,16 +45,11 @@ CONFIG_MESON_SERIAL=y
+ CONFIG_USB=y
+ CONFIG_USB_XHCI_HCD=y
+ CONFIG_USB_XHCI_DWC3=y
++CONFIG_USB_HOST_ETHER=y
+ CONFIG_USB_DWC3=y
+ # CONFIG_USB_DWC3_GADGET is not set
+ CONFIG_USB_DWC3_MESON_G12A=y
+ CONFIG_USB_KEYBOARD=y
+-CONFIG_USB_GADGET=y
+-CONFIG_USB_GADGET_VENDOR_NUM=0x1b8e
+-CONFIG_USB_GADGET_PRODUCT_NUM=0xfada
+-CONFIG_USB_GADGET_DWC2_OTG=y
+-CONFIG_USB_GADGET_DWC2_OTG_PHY_BUS_WIDTH_8=y
+-CONFIG_USB_GADGET_DOWNLOAD=y
+ CONFIG_DM_VIDEO=y
+ # CONFIG_VIDEO_BPP8 is not set
+ # CONFIG_VIDEO_BPP16 is not set
+-- 
+2.36.1
+
