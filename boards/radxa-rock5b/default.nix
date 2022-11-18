@@ -7,12 +7,14 @@ https://github.com/radxa/rkbin
 { config, lib, pkgs, ... }:
 
 let
-  blobs = pkgs.callPackage ./blobs.nix { };
+  tbcfg = config.Tow-Boot;
+  blobs_ = pkgs.callPackage ./blobs.nix { };
+  blobs = builtins.trace "x${pkgs.path}" blobs_;
   inherit (blobs) BL31 ram_init;
 in
 {
   device = {
-    manufacturer = "Radxa";
+    manufacturer = "RadxAli";
     name = "ROCK 5B";
     identifier = "radxa-rock5b";
     productPageURL = "https://wiki.radxa.com/Rock5/hardware/5b";
@@ -24,10 +26,15 @@ in
   };
 
   Tow-Boot = {
-    defconfig = "rock-5b-rk3588_defconfig";
+    # defconfig = "rock-5b-rk3588_defconfig";
     config = [
       (helpers: with helpers; {
         USB_GADGET_MANUFACTURER = freeform ''"Radxa"'';
+        DISABLE_CONSOLE = lib.mkForce no;
+        DM_ETH = yes;
+        PHY_REALTEK = lib.mkForce yes;
+        PHY_RK630 = yes;
+        DEBUG_UART = lib.mkForce yes;
       })
       (helpers: with helpers; {
         EFI_LOADER = yes;
@@ -55,8 +62,16 @@ in
       })
       (helpers: with helpers; {
         OPTEE_CLIENT = no;
-        ANDROID_BOOTLOADER = no;
-        ANDROID_BOOT_IMAGE = no;
+        ANDROID_BOOTLOADER = yes;
+        ANDROID_BOOT_IMAGE = yes;
+        ANDROID_AVB = no;
+        ANDROID_BOOT_IMAGE_HASH = no;
+        LIBAVB = no;
+        AVB_VERIFY = no;
+        CMD_AVB = no;
+        LOG = yes;
+        LOG_CONSOLE = yes;
+        LOG_MAX_LEVEL = freeform "7";
       })
     ];
 
@@ -86,13 +101,16 @@ in
     builder.installPhase = lib.mkMerge [
       # https://github.com/radxa/build/blob/428769f2ab689de27927af4bc8e7a9941677c366/mk-uboot.sh#L341-L347
       (lib.mkBefore ''
-
         echo ':: Building specific outputs for the proprietary flavoured bits'
         (PS4=" $ "; set -x
         make $makeFlags "''${makeFlagsArray[@]}" spl/u-boot-spl.bin u-boot.dtb u-boot.itb
         )
         echo ':: Building proprietary flavoured idbloader.img'
         (PS4=" $ "; set -x
+        echo "((((((((((((()))))))))))))"
+        ls -al spl/
+        echo "((((((((((((()))))))))))))"
+        
         tools/mkimage \
           -n rk3588 \
           -T "rksd" \
@@ -104,7 +122,7 @@ in
 
     patches = [
       ./patches/0001-BACKPORT-cmd-pxe-Increase-maximum-path-length.patch
-      ./patches/0001-rk3588_common-Disable-mtd-boot-target.patch
+      # ./patches/0001-rk3588_common-Disable-mtd-boot-target.patch
       # ./patches/0001-part_efi-Avoid-deluge-of-print-when-device-is-not-GP.patch
     ];
   };

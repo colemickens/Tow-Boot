@@ -16,7 +16,6 @@ in
     ./helpers.nix
     ./kconfig.nix
     ./metadata.nix
-    ./overlays.nix
     ./system.nix
     ./u-boot.nix
   ];

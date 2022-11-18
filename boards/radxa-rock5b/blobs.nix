@@ -28,9 +28,9 @@ in
       } ''
       cat $ram_init > $out
 
-      xxd -r - $out <<EOF
-      0000e7c0: 110d 2b0d 0000 0000 1e0d 3808 00c2 0120
-      EOF
+      # xxd -r - $out <<EOF
+      # 0000e7c0: 110d 2b0d 0000 0000 1e0d 3808 00c2 0120
+      # EOF
     ''
   ;
 }
