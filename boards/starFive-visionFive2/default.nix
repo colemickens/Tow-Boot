@@ -11,6 +11,6 @@
   };
 
   Tow-Boot = {
-    defconfig = "starfive_visionfive2_smode_defconfig";
+    defconfig = "starfive_visionfive2_defconfig";
   };
 }
