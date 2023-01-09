@@ -11,7 +11,13 @@ let
   towbootEval = evalTowBoot {
     device = config.tow-boot.device;
     config = config.tow-boot.config // {
-      nixpkgs = config.nixpkgs;
+      nixpkgs = {
+        inherit (pkgs.stdenv)
+          system
+          hostPlatform
+          buildPlatform
+        ;
+      };
     };
   };
   towbootBuild = towbootEval.config.Tow-Boot;
