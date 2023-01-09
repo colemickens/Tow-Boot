@@ -5,7 +5,7 @@ let
   cfg_eeprom = config.Tow-Boot.rpi-eeprom;
 
   rpipkgs = import inputs.rpipkgs {
-    system = pkgs.system; # TODO: ?
+    inherit (pkgs.stdenv) hostPlatform buildPlatform system;
   };
 
   final_binary = "Tow-Boot.noenv.rpi_arm64.bin";
