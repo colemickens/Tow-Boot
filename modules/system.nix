@@ -1,13 +1,7 @@
 { config, lib, pkgs, ... }:
 
 let
-  inherit (config.helpers) verbosely;
-
   cfg = config.system;
-  inherit (config.nixpkgs) localSystem;
-
-  # The platform selected by the configuration
-  selectedPlatform = lib.systems.elaborate cfg.system;
 in
 {
   options = {
@@ -49,14 +43,6 @@ in
         '';
       }
     ];
-
-    nixpkgs.crossSystem = lib.mkIf cfg.automaticCross (
-      lib.mkIf (
-        let result = selectedPlatform.system != localSystem.system; in
-          verbosely (builtins.trace "Building with crossSystem?: ${selectedPlatform.system} != ${localSystem.system} → ${if result then "we are" else "we're not"}.")
-          result
-      ) (verbosely (builtins.trace "    crossSystem: config: ${selectedPlatform.config}") selectedPlatform)
-    );
   };
 }
 
