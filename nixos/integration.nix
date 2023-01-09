@@ -7,10 +7,12 @@
 # - there's no rollback, not even a backup made right now
 
 let
-  _cfg = config.tow-boot;
-  cfg = builtins.trace "x${pkgs.path}" _cfg;
+  cfg = config.tow-boot;
   towbootEval = evalTowBoot {
-    inherit (cfg) device config system;
+    device = config.tow-boot.device;
+    config = config.tow-boot.config // {
+      nixpkgs = config.nixpkgs;
+    };
   };
   towbootBuild = towbootEval.config.Tow-Boot;
 in
@@ -21,10 +23,6 @@ in
       autoUpdate = lib.mkOption {
         type = lib.types.bool;
         default = false;
-      };
-      system = lib.mkOption {
-        type = lib.types.anything;
-        default = pkgs.hostPlatform.system;
       };
       device = lib.mkOption {
         type = lib.types.str;
