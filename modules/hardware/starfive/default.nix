@@ -9,7 +9,10 @@ let
     ;
 
   cfg = config.hardware.socs;
-  starFiveSOCs = [ "starfive-jh7100" ];
+  starFiveSOCs = [
+    "starfive-jh7100"
+    "starfive-jh7110"
+  ];
   anyStarFive = lib.any (soc: config.hardware.socs.${soc}.enable) starFiveSOCs;
 
   _opensbi =
@@ -36,6 +39,12 @@ in
         description = "Enable when SoC is StarFive JH7100";
         internal = true;
       };
+      starfive-jh7110.enable = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Enable when SoC is StarFive JH7110";
+        internal = true;
+      };
     };
   };
 
@@ -47,16 +56,18 @@ in
       system.system = "riscv64-linux";
 
       Tow-Boot = {
-        config = [(helpers: with helpers; {
-          # todo: tow-boot feature for disabling this
-          CMD_CLS = lib.mkForce no;
-          
-          # todo: not sure why needed
-          CMD_POWEROFF = lib.mkForce no;
-          
-          # per our patch in our branch of u-boot, to be upstream to towboot/uboot both
-          TFTP_FILE_NAME_MAX_LEN = freeform "256";
-        })];
+        config = [
+          (helpers: with helpers; {
+            # todo: tow-boot feature for disabling this
+            CMD_CLS = lib.mkForce no;
+
+            # todo: not sure why needed
+            CMD_POWEROFF = lib.mkForce no;
+
+            # per our patch in our branch of u-boot, to be upstream to towboot/uboot both
+            TFTP_FILE_NAME_MAX_LEN = freeform "256";
+          })
+        ];
         defconfig = "starfive_jh7100_visionfive_smode_defconfig";
         uBootVersion = "2022.04";
         useDefaultPatches = false;
@@ -98,32 +109,32 @@ in
         outputs = {
           extra = {
             vffw = fw_visionfive;
-            flasher = pkgs_: 
+            flasher = pkgs_:
 
-            # scripts =
+              # scripts =
               let
                 # flashBootloaderExpect = pkgs.writeScript "visionfive-flashbootloader-expect.sh" ''
                 flashBootloaderExpect =
-               pkgs_.writeScript "visionfive-flashbootloader-expect.sh" ''
-                  #!${pkgs_.expect}/bin/expect -f
-                  set timeout -1
-                  spawn ${pkgs_.picocom}/bin/picocom [lindex $argv 0] -b 115200 -s "${pkgs_.lrzsz}/bin/sz -X"
-                  expect "Terminal ready"
-                  send_user "\n### Apply power to the VisionFive Board ###\n"
-                  expect "bootloader"
-                  expect "DDR"
-                  send "\r"
-                  expect "0:update uboot"
-                  expect "select the function:"
-                  send "0\r"
-                  expect "send file by xmodem"
-                  expect "CC"
-                  send "\x01\x13"
-                  expect "*** file:"
-                  send "${fw_visionfive}/opensbi_u-boot_visionfive.bin"
-                  send "\r"
-                  expect "Transfer complete"
-                '';
+                  pkgs_.writeScript "visionfive-flashbootloader-expect.sh" ''
+                    #!${pkgs_.expect}/bin/expect -f
+                    set timeout -1
+                    spawn ${pkgs_.picocom}/bin/picocom [lindex $argv 0] -b 115200 -s "${pkgs_.lrzsz}/bin/sz -X"
+                    expect "Terminal ready"
+                    send_user "\n### Apply power to the VisionFive Board ###\n"
+                    expect "bootloader"
+                    expect "DDR"
+                    send "\r"
+                    expect "0:update uboot"
+                    expect "select the function:"
+                    send "0\r"
+                    expect "send file by xmodem"
+                    expect "CC"
+                    send "\x01\x13"
+                    expect "*** file:"
+                    send "${fw_visionfive}/opensbi_u-boot_visionfive.bin"
+                    send "\r"
+                    expect "Transfer complete"
+                  '';
                 flashBootloader = pkgs_.writeScript "visionfive-flashbootloader.sh" ''
                   ls -al "${fw_visionfive}/opensbi_u-boot_visionfive.bin"
                   if $(groups | grep --quiet --word-regexp "dialout"); then
@@ -146,7 +157,7 @@ in
               #     flashBootloader
               #   ];
               # };
-              ;
+            ;
           };
         };
       };
