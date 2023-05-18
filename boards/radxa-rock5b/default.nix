@@ -75,13 +75,20 @@ in
       })
     ];
 
-    uBootVersion = "2017.09";
+    uBootVersion = "2023.07-rc2";
     src = pkgs.fetchFromGitHub {
-      owner = "radxa";
+      owner = "u-boot";
       repo = "u-boot";
-      rev = "75b12f8295f1216d8f871a23fca37d4c990d508d"; # stable-5.10-rock5
-      sha256 = "sha256-gjDLj7ex7cccvpkvSrwJo4hiHOT8BFAtM9uAZ1DezcY=";
+      rev = "v2023.07-rc2";
+      sha256 = "sha256-xxxLj7ex7cccvpkvSrwJo4hiHOT8BFAtM9uAZ1DezcY=";
     };
+    # uBootVersion = "2017.09";
+    # src = pkgs.fetchFromGitHub {
+    #   owner = "radxa";
+    #   repo = "u-boot";
+    #   rev = "75b12f8295f1216d8f871a23fca37d4c990d508d"; # stable-5.10-rock5
+    #   sha256 = "sha256-gjDLj7ex7cccvpkvSrwJo4hiHOT8BFAtM9uAZ1DezcY=";
+    # };
 
     # This is based on the Rockchip BSP
     useDefaultPatches = false;
