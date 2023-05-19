@@ -13,7 +13,6 @@ let
     config = config.tow-boot.config // {
       nixpkgs = {
         inherit (pkgs.stdenv)
-          system
           hostPlatform
           buildPlatform
         ;
