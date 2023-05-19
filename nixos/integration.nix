@@ -19,7 +19,7 @@ let
       };
     };
   };
-  towbootBuild = towbootEval.config.Tow-Boot;
+  towbootBuild = towbootEval;
 in
 {
   options = {
