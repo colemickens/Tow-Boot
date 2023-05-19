@@ -144,7 +144,7 @@ in
         #   -d "${ram_init}:spl/u-boot-spl.bin" \
         #   idbloader.img
 
-        cp ${blobs.zero} $out/
+        cp ${blobs.zero} $out/zero.img.gz
         cp u-boot-rockchip.bin $out/binaries/
         cp u-boot-rockchip-spi.bin $out/binaries/
         cp u-boot.itb $out/binaries/
