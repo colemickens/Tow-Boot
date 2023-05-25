@@ -95,13 +95,16 @@ in
           sha256 = "sha256-lxGM2MnsRTwVSBpU+yCxTuEQM30xPv4u07D2SS9N6p0=";
         };
         p = "$out/configs/rock5b-rk3588_defconfig";
+        p2 = "$out/configs/evb-rk3588_defconfig";
         s2 = pkgs.runCommand "fix-rk3588-ubootdefconfig" { } ''
           set -x
           set -eu
           cp -r ${s1} $out
           chmod -R +w $out
-          echo "CONFIG_VIDEO=y" >> ${p}
-          cat $out/configs/rock5b-rk3588_defconfig
+          echo "CONFIG_VIDEO=y" >> "${p}"
+          echo "CONFIG_VIDEO=y" >> "${p2}"
+          echo "CONFIG_SPL_SPI_LOAD=y" >> "${p2}"
+          echo "CONFIG_SYS_SPI_U_BOOT_OFFS=0x60000" >> "${p2}"
         '';
       in
       s2;
