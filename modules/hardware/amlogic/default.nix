@@ -18,6 +18,7 @@ let
   amlogicG12 = lib.any (soc: config.hardware.socs.${soc}.enable) [
     "amlogic-a311d"
     "amlogic-s922x"
+    "amlogic-s905"
     "amlogic-s905x3" # technically an SM1 family member, but the boot process is identical to G12
   ];
   amlogicGXL = lib.any (soc: config.hardware.socs.${soc}.enable) [
