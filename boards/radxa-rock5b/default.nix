@@ -25,7 +25,8 @@ in
   };
 
   Tow-Boot = {
-    defconfig = "rock5b-rk3588_defconfig";
+    buildUBoot = true;
+    defconfig = "evb-rk3588_defconfig";
     # config = [
     #   (helpers: with helpers; {
     #     SYS_WHITE_ON_BLACK = lib.mkForce yes;
@@ -82,16 +83,17 @@ in
     #   })
     # ];
 
-    uBootVersion = "2023.07-rc2";
+    uBootVersion = "2023.10-rc1";
     src =
       let
         s1 = pkgs.fetchFromGitLab {
           domain = "gitlab.collabora.com";
           owner = "hardware-enablement/rockchip-3588";
           repo = "u-boot";
-          # 2023.07-rc2-rock5b at 18-may-2023
-          rev = "72d8b9c88abf60b0fcae0ccd7bd1cebea7246702";
-          sha256 = "sha256-lxGM2MnsRTwVSBpU+yCxTuEQM30xPv4u07D2SS9N6p0=";
+          # https://gitlab.collabora.com/hardware-enablement/rockchip-3588/u-boot/-/commits/2023.10-rc1-rk3588/
+          # 13-aug-2023
+          rev = "521deb5b8e6b9492ffe73efc46997d5b30b7aaf6";
+          sha256 = "sha256-42fsXKlJZ7RTfZeN4RuVGHxK0zFzxAyfzRteU4BmGb0=";
         };
         p = "$out/configs/rock5b-rk3588_defconfig";
         p2 = "$out/configs/evb-rk3588_defconfig";
@@ -107,9 +109,6 @@ in
         '';
       in
       s2;
-
-    # This is based on the Rockchip BSP
-    useDefaultPatches = false;
 
     # Disable features causing trouble
     withLogo = false;

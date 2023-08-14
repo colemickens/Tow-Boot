@@ -115,7 +115,8 @@ in
         # Guard against the patches being applied to the vendor BSP
         patches = mkIf (!isBSP) (mkMerge [
           [
-            ./0001-HACK-efi_runtime-pretend-we-can-t-reset.patch
+            # TODO: idk disable for now
+            # ./0001-HACK-efi_runtime-pretend-we-can-t-reset.patch
           ]
           [
             # Ensures eMMC nodes are present in SPL FDT.
