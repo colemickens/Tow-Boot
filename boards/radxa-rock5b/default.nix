@@ -10,7 +10,6 @@ let
   tbcfg = config.Tow-Boot;
   blobs_ = pkgs.callPackage ./blobs.nix { };
   blobs = builtins.trace "x${pkgs.path}" blobs_;
-  inherit (blobs) BL31 ram_init;
 in
 {
   device = {
@@ -121,8 +120,8 @@ in
     # '';
 
     builder.additionalArguments = {
-      BL31 = BL31;
-      ROCKCHIP_TPL = ram_init;
+      BL31 = blobs.bl31;
+      ROCKCHIP_TPL = blobs.ddrInit;
     };
 
     builder.installPhase = lib.mkMerge [
@@ -144,7 +143,7 @@ in
         # tools/mkimage \
         #   -n rk3588 \
         #   -T "rksd" \
-        #   -d "${ram_init}:spl/u-boot-spl.bin" \
+        #   -d "${blobs.ddrInit}:spl/u-boot-spl.bin" \
         #   idbloader.img
 
         cp ${blobs.zero} $out/zero.img.gz
