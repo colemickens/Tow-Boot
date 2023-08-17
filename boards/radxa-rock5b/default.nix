@@ -15,7 +15,7 @@ in
   device = {
     manufacturer = "RadxAli";
     name = "ROCK 5B";
-    identifier = "radxa-rock5b";
+    identifier = "evb-rk3588";
     productPageURL = "https://wiki.radxa.com/Rock5/hardware/5b";
   };
 
@@ -27,13 +27,13 @@ in
   Tow-Boot = {
     buildUBoot = true;
     defconfig = "evb-rk3588_defconfig";
-    # config = [
-    #   (helpers: with helpers; {
-    #     SYS_WHITE_ON_BLACK = lib.mkForce yes;
-    #     TPL_ENV_IS_NOWHERE = lib.mkForce yes;
-    #     SPL_SPI_SUPPORT = lib.mkForce yes;
-    #   })
-    # ];
+    config = [
+      (helpers: with helpers; {
+        SYS_WHITE_ON_BLACK = lib.mkForce yes;
+        TPL_ENV_IS_NOWHERE = lib.mkForce yes;
+        SPL_SPI_SUPPORT = lib.mkForce yes;
+      })
+    ];
 
     # config = [
     #   (helpers: with helpers; {
@@ -104,6 +104,7 @@ in
           chmod -R +w $out
           echo "CONFIG_VIDEO=y" >> "${p}"
           echo "CONFIG_VIDEO=y" >> "${p2}"
+          echo "CONFIG_SPL_SPI_SUPPORT=y" >> "${p2}"
           echo "CONFIG_SPL_SPI_LOAD=y" >> "${p2}"
           echo "CONFIG_SYS_SPI_U_BOOT_OFFS=0x60000" >> "${p2}"
         '';
