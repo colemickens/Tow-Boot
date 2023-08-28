@@ -38,7 +38,8 @@ let
 
   anyRockchip = lib.any (soc: config.hardware.socs.${soc}.enable) rockchipSOCs;
   isPhoneUX = config.Tow-Boot.phone-ux.enable;
-  withSPI = config.hardware.SPISize != null;
+  # withSPI = config.hardware.SPISize != null;
+  withSPI = false;
   useSpi2K4Kworkaround = cfg.rockchip-rk3399.enable;
   useSpiSDLayout = !useSpi2K4Kworkaround;
   chipName =
@@ -203,6 +204,7 @@ in
             (mkIf (variant != "spi") ''
               echo ":: Preparing single file firmware image for shared storage..."
               (PS4=" $ "; set -x
+              ls -al
               dd if=idbloader.img of=Tow-Boot.$variant.bin conv=fsync,notrunc bs=$sectorSize seek=$((partitionOffset - partitionOffset))
               dd if=u-boot.itb    of=Tow-Boot.$variant.bin conv=fsync,notrunc bs=$sectorSize seek=$((secondOffset - partitionOffset))
               cp -v Tow-Boot.$variant.bin $out/binaries/

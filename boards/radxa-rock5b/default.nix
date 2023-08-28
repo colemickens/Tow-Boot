@@ -15,7 +15,7 @@ in
   device = {
     manufacturer = "RadxAli";
     name = "ROCK 5B";
-    identifier = "evb-rk3588";
+    identifier = "evb-rk3588"; ##### TODO
     productPageURL = "https://wiki.radxa.com/Rock5/hardware/5b";
   };
 
@@ -27,13 +27,16 @@ in
   Tow-Boot = {
     buildUBoot = true;
     defconfig = "evb-rk3588_defconfig";
-    config = [
-      (helpers: with helpers; {
-        SYS_WHITE_ON_BLACK = lib.mkForce yes;
-        TPL_ENV_IS_NOWHERE = lib.mkForce yes;
-        SPL_SPI_SUPPORT = lib.mkForce yes;
-      })
-    ];
+    # config = [
+    #   (helpers: with helpers; {
+    #     SPL_ENV_IS_NOWHERE = lib.mkForce yes;
+    #     SPL_SPI_FLASH_SUPPORT = lib.mkForce yes;
+    #     SPL_SPI_SUPPORT = lib.mkForce yes;
+    #     SPL_SPLI_LOAD = lib.mkForce yes;
+    #     SYS_WHITE_ON_BLACK = lib.mkForce yes;
+    #     TPL_ENV_IS_NOWHERE = lib.mkForce yes;
+    #   })
+    # ];
 
     # config = [
     #   (helpers: with helpers; {
@@ -93,24 +96,92 @@ in
           # https://gitlab.collabora.com/hardware-enablement/rockchip-3588/u-boot/-/commits/2023.10-rc1-rk3588/
           # 13-aug-2023
           rev = "46349e27812413f73197fc3eec460743940314de";
-          sha256 = "sha256-42fsXKlJZ7RTfZeN4RuVGHxK0zyyyyyfzRteU4BmGb0=";
+          sha256 = "sha256-UlJp7sXHp9+zGrCJ3DOh7+VzqJrDCyeFW6czXNdhfJA=";
         };
-        p = "$out/configs/rock5b-rk3588_defconfig";
         p2 = "$out/configs/evb-rk3588_defconfig";
         s2 = pkgs.runCommand "fix-rk3588-ubootdefconfig" { } ''
           set -x
           set -eu
           cp -r ${s1} $out
           chmod -R +w $out
-          echo "CONFIG_VIDEO=y" >> "${p}"
-          echo "CONFIG_VIDEO=y" >> "${p2}"
-          echo "CONFIG_SPL_SPI_SUPPORT=y" >> "${p2}"
-          echo "CONFIG_SPL_SPI_LOAD=y" >> "${p2}"
-          echo "CONFIG_SYS_SPI_U_BOOT_OFFS=0x60000" >> "${p2}"
+          cat <<EOF >> "${p2}"
+          CONFIG_NR_DRAM_BANKS=2
+          CONFIG_PCI=y
+          CONFIG_PCI_INIT_R=y
+          CONFIG_DEBUG_UART=y
+          CONFIG_ROCKCHIP_RK3588=y
+          CONFIG_OF_BOARD_SETUP=y
+          CONFIG_SPL_ENV_IS_NOWHERE=y
+          CONFIG_TPL_ENV_IS_NOWHERE=y
+          CONFIG_ROCKCHIP_GPIO=y
+          CONFIG_VIDEO=y
+          CONFIG_CMD_DFU=y
+          CONFIG_CMD_GPIO=y
+          CONFIG_CMD_GPT=y
+          CONFIG_CMD_I2C=y
+          CONFIG_CMD_MMC=y
+          CONFIG_CMD_PCI=y
+          CONFIG_CMD_USB=y
+          CONFIG_CMD_ROCKUSB=y
+          CONFIG_CMD_REGULATOR=y
+          CONFIG_GMAC_ROCKCHIP=y
+          CONFIG_SYS_I2C_ROCKCHIP=y
+          CONFIG_SPL_OF_CONTROL=y
+          CONFIG_OF_LIVE=y
+          CONFIG_MISC=y
+          CONFIG_SUPPORT_EMMC_RPMB=y
+          CONFIG_MMC_DW=y
+          CONFIG_MMC_DW_ROCKCHIP=y
+          CONFIG_MMC_SDHCI=y
+          CONFIG_MMC_SDHCI_SDMA=y
+          CONFIG_MMC_SDHCI_ROCKCHIP=y
+          CONFIG_SPI_FLASH_MACRONIX=y
+          CONFIG_SPI_FLASH_XTX=y
+          CONFIG_ETH_DESIGNWARE=y
+          CONFIG_RTL8169=y
+          CONFIG_GMAC_ROCKCHIP=y
+          CONFIG_PCIE_DW_ROCKCHIP=y
+          CONFIG_PHY_ROCKCHIP_INNO_USB2=y
+          CONFIG_PHY_ROCKCHIP_NANENG_COMBOPHY=y
+          CONFIG_PHY_ROCKCHIP_USBDP=y
+          CONFIG_REGULATOR_PWM=y
+          CONFIG_PWM_ROCKCHIP=y
+          CONFIG_ROCKCHIP_SFC=y
+          CONFIG_SYSRESET=y
+          CONFIG_USB=y
+          CONFIG_DM_ETH=y
+          CONFIG_PHY_REALTEK=y
+          CONFIG_DM_USB_GADGET=y
+          CONFIG_DEBUG_UART_SHIFT=2
+          CONFIG_SYS_NS16550_MEM32=y
+          CONFIG_SPL_DM_USB_GADGET=y
+          CONFIG_USB_XHCI_HCD=y
+          CONFIG_USB_EHCI_HCD=y
+          CONFIG_USB_EHCI_GENERIC=y
+          CONFIG_USB_OHCI_HCD=y
+          CONFIG_USB_OHCI_GENERIC=y
+          CONFIG_USB_DWC3=y
+          CONFIG_USB_DWC3_GENERIC=y
+          CONFIG_SPL_USB_DWC3_GENERIC=y
+          CONFIG_USB_ETHER_ASIX=y
+          CONFIG_USB_ETHER_ASIX88179=y
+          CONFIG_USB_HOST_ETHER=y
+          CONFIG_USB_ETHER_LAN75XX=y
+          CONFIG_USB_ETHER_LAN78XX=y
+          CONFIG_USB_ETHER_MCS7830=y
+          CONFIG_USB_ETHER_RTL8152=y
+          CONFIG_USB_ETHER_SMSC95XX=y
+          # CONFIG_USB_GADGET=y
+          CONFIG_TARGET_ROCK5B_RK3588=y
+          EOF
+
+          echo "XXXXXXXXXXXXXXXXXXXXXXXXXX"
+          cat "${p2}"
+          echo "XXXXXXXXXXXXXXXXXXXXXXXXXX"
         '';
       in
-      s1;
-      # s2;
+      # s1;
+      s2;
 
     # Disable features causing trouble
     withLogo = false;
@@ -134,22 +205,22 @@ in
         # )
         # echo ':: Building proprietary flavoured idbloader.img'
         # echo "((((((((((((()))))))))))))"
-        ls -al spl/
-        # echo "((((((((((((()))))))))))))"
-        echo
-        echo
-        ls -al 
-        # echo "((((((((((((()))))))))))))"
+        # ls -al spl/
+        # # echo "((((((((((((()))))))))))))"
+        # echo
+        # echo
+        # ls -al 
+        # # echo "((((((((((((()))))))))))))"
         
-        # tools/mkimage \
-        #   -n rk3588 \
-        #   -T "rksd" \
-        #   -d "${blobs.ddrInit}:spl/u-boot-spl.bin" \
-        #   idbloader.img
+        # # tools/mkimage \
+        # #   -n rk3588 \
+        # #   -T "rksd" \
+        # #   -d "${blobs.ddrInit}:spl/u-boot-spl.bin" \
+        # #   idbloader.img
 
         cp ${blobs.zero} $out/zero.img.gz
         cp u-boot-rockchip.bin $out/binaries/
-        cp u-boot-rockchip-spi.bin $out/binaries/
+        cp u-boot-rockchip-spi.bin $out/binaries/ || true ### TODO lazy
         cp u-boot.itb $out/binaries/
         cp idbloader.img $out/binaries/
       '')
