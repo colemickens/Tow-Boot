@@ -92,8 +92,8 @@ in
           repo = "u-boot";
           # https://gitlab.collabora.com/hardware-enablement/rockchip-3588/u-boot/-/commits/2023.10-rc1-rk3588/
           # 13-aug-2023
-          rev = "521deb5b8e6b9492ffe73efc46997d5b30b7aaf6";
-          sha256 = "sha256-42fsXKlJZ7RTfZeN4RuVGHxK0zFzxAyfzRteU4BmGb0=";
+          rev = "46349e27812413f73197fc3eec460743940314de";
+          sha256 = "sha256-42fsXKlJZ7RTfZeN4RuVGHxK0zyyyyyfzRteU4BmGb0=";
         };
         p = "$out/configs/rock5b-rk3588_defconfig";
         p2 = "$out/configs/evb-rk3588_defconfig";
@@ -109,7 +109,8 @@ in
           echo "CONFIG_SYS_SPI_U_BOOT_OFFS=0x60000" >> "${p2}"
         '';
       in
-      s2;
+      s1;
+      # s2;
 
     # Disable features causing trouble
     withLogo = false;
